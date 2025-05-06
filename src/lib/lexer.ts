@@ -1,4 +1,5 @@
-import type { Token, TokenType, LexerResult, SymbolTableEntry, LexemeStat } from './types';
+import type { Token, TokenType, LexerResult, SymbolTableEntry, LexemeStat, TacInstruction } from './types';
+import { generateTAC } from './tac-generator'; // Import the TAC generator
 
 // --- Language Specific Definitions ---
 
@@ -38,35 +39,29 @@ const operators = new Set([
   '.', '->',              // Member access (C++)
   '::',                   // Scope resolution (C++)
   ',',                    // Comma
-  // Java specific might need separate handling if logic differs significantly
 ]);
 
-const punctuation = new Set([';', '{', '}', '(', ')', '[', ']', '<', '>']); // Note: < and > overlap with operators, context needed
+const punctuation = new Set([';', '{', '}', '(', ')', '[', ']', ':']); // Added ':' for labels/ternary
 
 
 // --- Regular Expressions ---
-
-// More robust regex, handles various number formats and edge cases
 const numberRegex = /^(?:0[xX][0-9a-fA-F]+(?:[uUL]|lu|ul|LU|UL)?|0[0-7]*(?:[uUL]|lu|ul|LU|UL)?|(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?[fFdD]?|[0-9]+(?:[uUL]|lu|ul|LU|UL)?)/;
 const identifierRegex = /^[a-zA-Z_$][a-zA-Z0-9_$]*/;
-const stringLiteralRegex = /^"(?:[^"\\]|\\.)*"/; // Handles escaped quotes
-const charLiteralRegex = /^'(?:[^'\\]|\\.)'/; // Handles escaped characters
-
+const stringLiteralRegex = /^"(?:[^"\\]|\\.)*"/;
+const charLiteralRegex = /^'(?:[^'\\]|\\.)'/;
 const whitespaceRegex = /^\s+/;
 const singleLineCommentRegexJava = /^\/\/.*/;
-const multiLineCommentRegexJava = /^\/\*[\s\S]*?\*\//; // Non-greedy match
-
+const multiLineCommentRegexJava = /^\/\*[\s\S]*?\*\//;
 const singleLineCommentRegexCpp = /^\/\/.*/;
-const multiLineCommentRegexCpp = /^\/\*[\s\S]*?\*\//; // Same as Java for basic C-style comments
-
+const multiLineCommentRegexCpp = /^\/\*[\s\S]*?\*\//;
 
 // --- Lexer Core Function ---
 
 export function analyzeCode(code: string, language: 'java' | 'cpp'): Omit<LexerResult, 'errors'> {
   const tokens: Token[] = [];
-  // Errors are now logged to console instead of collected
-  const symbolTable = new Map<string, SymbolTableEntry>(); // Use Map for easier updates
-  let currentScope: string | null = null; // Simple scope tracking for demo
+  const symbolTable = new Map<string, SymbolTableEntry>(); // Rule 9: Use Map for efficient access
+  const scopeStack: string[] = ['global']; // Rule 3: Stack for scope handling
+  let lastKeywordType: string | null = null; // To help with type binding
 
   let remainingCode = code;
   let line = 1;
@@ -76,17 +71,92 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): Omit<LexerR
   const singleLineCommentRegex = language === 'java' ? singleLineCommentRegexJava : singleLineCommentRegexCpp;
   const multiLineCommentRegex = language === 'java' ? multiLineCommentRegexJava : multiLineCommentRegexCpp;
 
+  const getCurrentScope = () => scopeStack[scopeStack.length - 1];
+
+  // Rule 1: Static initialization (add keywords to symbol table or a separate set)
+  // For simplicity, we rely on the `keywords` set for lookup later.
+
+  // Helper to check if a symbol exists in the current scope
+  const existsInCurrentScope = (lexeme: string): boolean => {
+    if (!symbolTable.has(lexeme)) return false;
+    return symbolTable.get(lexeme)!.scope === getCurrentScope();
+  };
+
+  // Helper to find a symbol starting from current scope outwards
+  const lookupSymbol = (lexeme: string): SymbolTableEntry | undefined => {
+      for (let i = scopeStack.length - 1; i >= 0; i--) {
+          const scope = scopeStack[i];
+          // Simple lookup by lexeme name, refinement needed for scoped keys if Map stores per scope
+          const entry = symbolTable.get(lexeme);
+          // Check if entry exists AND belongs to the scope being checked
+          if (entry && entry.scope === scope) {
+              return entry;
+          }
+          // More robust: If map keys were "scope:lexeme", lookup would be direct:
+          // const scopedKey = `${scope}:${lexeme}`;
+          // if (symbolTable.has(scopedKey)) return symbolTable.get(scopedKey);
+      }
+      return undefined; // Not found in any accessible scope
+  };
+
+
+  // Helper to insert/update a symbol
+  const addOrUpdateSymbol = (
+      lexeme: string,
+      tokenType: TokenType,
+      dataType: string | null,
+      line: number,
+      isDeclaration: boolean = false,
+      attributes?: SymbolTableEntry['attributes']
+  ) => {
+      const currentScope = getCurrentScope();
+      const existingEntry = lookupSymbol(lexeme);
+
+      // Rule 1 & 8: Check for redefinition in the *current* scope
+      if (existingEntry && existingEntry.scope === currentScope && isDeclaration) {
+          // Allow update if only line number changes, otherwise check type
+          if (existingEntry.dataType && dataType && existingEntry.dataType !== dataType) {
+              console.error(`Symbol Table Error: Redefinition of '${lexeme}' with a different type ('${dataType}' vs '${existingEntry.dataType}') in scope '${currentScope}' at line ${line}.`);
+              return; // Don't add/update on type mismatch redefinition
+          }
+           // If not a redefinition error, update line number
+          if (!existingEntry.lineNumbers.includes(line)) {
+             existingEntry.lineNumbers.push(line);
+          }
+          // Rule 7: Update other attributes if needed
+           if (dataType && !existingEntry.dataType) existingEntry.dataType = dataType;
+           if (attributes) existingEntry.attributes = { ...existingEntry.attributes, ...attributes };
+          symbolTable.set(lexeme, existingEntry); // Update the map
+      } else if (!existingEntry || existingEntry.scope !== currentScope) {
+          // Not in current scope or doesn't exist: Insert new entry for current scope
+          symbolTable.set(lexeme, {
+              lexeme: lexeme,
+              tokenType: tokenType,
+              dataType: dataType,
+              scope: currentScope,
+              lineNumbers: [line],
+              attributes: attributes || {}, // Initialize attributes
+          });
+      } else {
+          // Exists in current scope, not a declaration - just update line number
+           if (!existingEntry.lineNumbers.includes(line)) {
+               existingEntry.lineNumbers.push(line);
+               symbolTable.set(lexeme, existingEntry); // Update the map
+           }
+      }
+  };
+
 
   while (remainingCode.length > 0) {
     let match: RegExpMatchArray | null = null;
     let tokenType: TokenType | null = null;
     let tokenValue: string | null = null;
+    let isDeclaration = false; // Flag for symbol insertion logic
 
-    // 1. Whitespace
+    // --- Whitespace and Comments Handling (as before) ---
     if ((match = remainingCode.match(whitespaceRegex))) {
       tokenType = 'WHITESPACE';
       tokenValue = match[0];
-      // Update line/column count based on newlines in whitespace
       const lines = tokenValue.split('\n');
       if (lines.length > 1) {
         line += lines.length - 1;
@@ -94,136 +164,148 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): Omit<LexerR
       } else {
         column += tokenValue.length;
       }
-      // Optionally add whitespace tokens if needed, otherwise just consume
-      // tokens.push({ token: tokenValue, type: tokenType, line, column: column - tokenValue.length });
       remainingCode = remainingCode.substring(tokenValue.length);
-      continue; // Move to next iteration
+      continue;
     }
-
-    // 2. Comments
-    if ((match = remainingCode.match(multiLineCommentRegex))) {
-      tokenType = 'COMMENT_MULTI';
-    } else if ((match = remainingCode.match(singleLineCommentRegex))) {
-      tokenType = 'COMMENT_SINGLE';
-    }
-    if (match && tokenType?.startsWith('COMMENT')) {
-        tokenValue = match[0];
-        // Don't add comments to the main token list for analysis display
-        // tokens.push({ token: tokenValue, type: tokenType, line, column });
-
-        const lines = tokenValue.split('\n');
-         if (lines.length > 1) {
-            line += lines.length - 1;
-             column = lines[lines.length - 1].length + 1;
-        } else {
-             column += tokenValue.length;
-        }
-        remainingCode = remainingCode.substring(tokenValue.length);
-        continue;
-    }
-
-
-    // 3. Keywords, Identifiers, Literals
-    if ((match = remainingCode.match(identifierRegex))) {
+    if ((match = remainingCode.match(multiLineCommentRegex)) || (match = remainingCode.match(singleLineCommentRegex))) {
+      tokenType = match[0].startsWith('/*') ? 'COMMENT_MULTI' : 'COMMENT_SINGLE';
       tokenValue = match[0];
-      if (keywords.has(tokenValue)) {
-         if (tokenValue === 'true' || tokenValue === 'false') {
-            tokenType = 'LITERAL_BOOLEAN';
-         } else if (tokenValue === 'null') {
-            // technically a literal, but often treated like a keyword
-             tokenType = 'KEYWORD'; // Or a specific 'LITERAL_NULL' type
-         }
-         else {
-           tokenType = 'KEYWORD';
-         }
+      const lines = tokenValue.split('\n');
+      if (lines.length > 1) {
+        line += lines.length - 1;
+        column = lines[lines.length - 1].length + 1;
       } else {
-        tokenType = 'IDENTIFIER';
-        // Rudimentary symbol table update (only adds, doesn't track type/scope well yet)
-        if (!symbolTable.has(tokenValue)) {
-            symbolTable.set(tokenValue, {
-                identifier: tokenValue,
-                type: null, // Type inference is complex, requires parsing
-                scope: currentScope,
-                lineDefined: line,
-            });
-        }
+        column += tokenValue.length;
       }
-    } else if ((match = remainingCode.match(stringLiteralRegex))) {
+      remainingCode = remainingCode.substring(tokenValue.length);
+      continue;
+    }
+
+    // --- Token Identification and Symbol Table Interaction ---
+
+    let currentTokenStartColumn = column; // Track start column for the current token
+
+    // Keywords
+     if ((match = remainingCode.match(identifierRegex))) {
+       const potentialKeyword = match[0];
+       if (keywords.has(potentialKeyword)) {
+         tokenType = 'KEYWORD';
+         tokenValue = potentialKeyword;
+         // Rule 6: Potential Data Type Binding hint
+         if (['int', 'float', 'double', 'char', 'boolean', 'void', 'string', 'auto', 'long', 'short', 'signed', 'unsigned'].includes(tokenValue)) {
+           lastKeywordType = tokenValue; // Remember the type keyword
+         } else {
+           lastKeywordType = null; // Reset if it's not a type keyword
+         }
+       }
+     }
+
+     // Identifiers (only if not identified as a keyword)
+    if (!tokenType && (match = remainingCode.match(identifierRegex))) {
+      tokenType = 'IDENTIFIER';
+      tokenValue = match[0];
+      isDeclaration = !!lastKeywordType; // It's a declaration if preceded by a type keyword
+      // Rule 2 & 6: Lookup or Insert Identifier
+      addOrUpdateSymbol(tokenValue, tokenType, isDeclaration ? lastKeywordType : null, line, isDeclaration);
+      if(isDeclaration) lastKeywordType = null; // Consume the type hint after declaration
+    }
+    // Literals
+    else if ((match = remainingCode.match(stringLiteralRegex))) {
       tokenType = 'LITERAL_STRING';
       tokenValue = match[0];
+       // Rule 5: Constant Management (optional: add to symbol table or separate literal table)
+       addOrUpdateSymbol(tokenValue, tokenType, 'string', line, false, { isConstant: true, value: JSON.parse(tokenValue) }); // Store parsed value
+      lastKeywordType = null;
     } else if ((match = remainingCode.match(charLiteralRegex))) {
-       tokenType = 'LITERAL_CHAR';
-       tokenValue = match[0];
+        tokenType = 'LITERAL_CHAR';
+        tokenValue = match[0];
+        addOrUpdateSymbol(tokenValue, tokenType, 'char', line, false, { isConstant: true, value: tokenValue.slice(1, -1) }); // Store char value
+        lastKeywordType = null;
     } else if ((match = remainingCode.match(numberRegex))) {
-      tokenType = 'LITERAL_NUMBER';
-      tokenValue = match[0];
+        tokenType = 'LITERAL_NUMBER';
+        tokenValue = match[0];
+         // Infer numeric type (simplified)
+         let numType = 'int';
+         if (tokenValue.includes('.') || tokenValue.includes('e') || tokenValue.includes('E')) numType = 'float'; // or double
+         if (tokenValue.endsWith('f') || tokenValue.endsWith('F')) numType = 'float';
+         if (tokenValue.endsWith('l') || tokenValue.endsWith('L')) numType = 'long';
+         addOrUpdateSymbol(tokenValue, tokenType, numType, line, false, { isConstant: true, value: Number(tokenValue) }); // Store numeric value
+        lastKeywordType = null;
+     } else if (tokenType === 'KEYWORD' && (tokenValue === 'true' || tokenValue === 'false')) {
+         tokenType = 'LITERAL_BOOLEAN';
+         addOrUpdateSymbol(tokenValue, tokenType, 'boolean', line, false, { isConstant: true, value: tokenValue === 'true' });
+         lastKeywordType = null;
     }
 
-    // 4. Operators and Punctuation (needs careful ordering)
-    // Check for multi-character operators first
-    let opMatch = false;
-    // Sort operators by length descending to match longest first
-    const sortedOperators = Array.from(operators).sort((a, b) => b.length - a.length);
-
-    for (const op of sortedOperators) {
-       if (remainingCode.startsWith(op)) {
-            // Need additional check for '>' potentially being part of generics/templates vs operator
-            // This is context-sensitive and hard to do perfectly without a parser.
-            // Basic check: if followed by space or not '<'/'=', likely operator.
-            const nextChar = remainingCode[op.length];
-             if (op === '>' && (nextChar === '<' || nextChar === '=')) {
-                 // Skip if it looks like start of template `>>` or `>=`
-             } else if (op === '<' && (nextChar === '>' || nextChar === '=')) {
-                 // Skip if it looks like start of template `<<` or `<=`
-            } else {
-                tokenType = 'OPERATOR';
-                tokenValue = op;
-                opMatch = true;
-                break;
-            }
-       }
+    // Operators
+    if (!tokenType) { // Check only if not identified above
+        const sortedOperators = Array.from(operators).sort((a, b) => b.length - a.length);
+        for (const op of sortedOperators) {
+          if (remainingCode.startsWith(op)) {
+            tokenType = 'OPERATOR';
+            tokenValue = op;
+             // Rule 2: Lookup Operator (often predefined, not in dynamic table)
+             // Example: addOrUpdateSymbol(tokenValue, tokenType, null, line);
+            lastKeywordType = null;
+            break;
+          }
+        }
     }
-    // Then single-character punctuation
-    if (!opMatch) {
+
+    // Punctuation
+    if (!tokenType) { // Check only if not identified above
         const char = remainingCode[0];
         if (punctuation.has(char)) {
             tokenType = 'PUNCTUATION';
             tokenValue = char;
 
-            // Basic scope tracking example
-            if (tokenValue === '{') currentScope = `block@${line}:${column}`;
-            if (tokenValue === '}') currentScope = null; // Very simplified, needs proper stack
-
+            // Rule 3: Scope Handling
+            if (tokenValue === '{') {
+              const newScopeName = `${getCurrentScope()}/block@${line}:${column}`; // More specific scope name
+              scopeStack.push(newScopeName);
+            } else if (tokenValue === '}') {
+              if (scopeStack.length > 1) { // Don't pop the global scope
+                scopeStack.pop();
+              } else {
+                  console.error(`Scope Error: Unmatched '}' at Line ${line}, Column ${column}`);
+              }
+            }
+            // Rule 2: Lookup Punctuation (like operators, often predefined)
+            lastKeywordType = null; // Reset type hint on punctuation
         }
     }
 
-
-    // --- Token Processing ---
-    if (tokenValue && tokenType) { // Ensure tokenType is set
-      // Exclude whitespace and comments from the final token list sent to UI
-      if (tokenType !== 'WHITESPACE' && !tokenType.startsWith('COMMENT')) {
-         tokens.push({ token: tokenValue, type: tokenType, line, column });
-      }
+    // --- Token Processing & Error Handling ---
+    if (tokenValue && tokenType) {
+      tokens.push({ token: tokenValue, type: tokenType, line, column: currentTokenStartColumn }); // Use start column
       column += tokenValue.length;
       remainingCode = remainingCode.substring(tokenValue.length);
     } else {
-      // No match found - Log ERROR, but don't add to UI error list
+      // No match found - Error
       const errorChar = remainingCode[0];
       console.error(`Lexer Error: Invalid character '${errorChar}' at Line ${line}, Column ${column}`);
-      // Skip the invalid character and continue lexing
+      tokens.push({ token: errorChar, type: 'ERROR', line, column }); // Add error token
       column += 1;
-      remainingCode = remainingCode.substring(1);
+      remainingCode = remainingCode.substring(1); // Skip the invalid character
+      lastKeywordType = null; // Reset type hint on error
     }
   } // end while loop
 
-
   // --- Calculate Lexeme Stats ---
-   const lexemeStats = calculateStats(tokens); // Calculate stats based on the *filtered* tokens
+  const lexemeStats = calculateStats(tokens.filter(t => t.type !== 'WHITESPACE' && !t.type.startsWith('COMMENT') && t.type !== 'ERROR'));
 
+  // --- Generate Three-Address Code ---
+  const tac = generateTAC(tokens); // Generate TAC from the filtered tokens
 
-  return { tokens, // Return filtered tokens
-            symbolTable: Array.from(symbolTable.values()), // Convert Map back to Array
-            lexemeStats };
+  // Rule 10: Exporting - Convert Map to Array for the result
+  const finalSymbolTable = Array.from(symbolTable.values());
+
+  return {
+      tokens: tokens.filter(t => t.type !== 'WHITESPACE' && !t.type.startsWith('COMMENT')), // Filter UI tokens
+      symbolTable: finalSymbolTable,
+      lexemeStats,
+      tac // Include TAC in the result
+  };
 }
 
 
@@ -232,7 +314,6 @@ function calculateStats(tokens: Token[]): LexemeStat[] {
     let totalTokens = 0;
 
     for (const token of tokens) {
-        // Tokens passed here are already filtered (no whitespace/comments)
         counts[token.type] = (counts[token.type] || 0) + 1;
         totalTokens++;
     }
@@ -245,7 +326,7 @@ function calculateStats(tokens: Token[]): LexemeStat[] {
             count: count!,
             frequency: count! / totalTokens,
         }))
-        .sort((a, b) => b.count - a.count); // Sort by count descending
+        .sort((a, b) => b.count - a.count);
 
     return stats;
 }

@@ -4,7 +4,6 @@ export interface Token {
   type: TokenType; // The category of the token (e.g., KEYWORD, IDENTIFIER)
   line: number; // The line number where the token starts
   column: number; // The column number where the token starts
-  message?: string; // Optional message, primarily for errors (kept for internal use if needed)
 }
 
 // Define the possible types a token can have
@@ -22,12 +21,21 @@ export type TokenType =
   | 'WHITESPACE'     // Kept for internal lexing logic, filtered for UI
   | 'ERROR';         // For internal error logging, filtered for UI
 
-// Define the structure for an entry in the symbol table
+// Define the structure for an entry in the symbol table based on detailed rules
 export interface SymbolTableEntry {
-  identifier: string; // The name of the identifier
-  type: string | null; // The data type (e.g., "int", "String", "float") - might be null initially
-  scope: string | null; // The scope where the identifier is defined (e.g., "global", "methodName")
-  lineDefined: number; // The line number where the identifier was first declared/encountered
+  lexeme: string;         // Actual string or token from source code
+  tokenType: TokenType;   // Category: identifier, keyword, constant, operator, etc.
+  dataType: string | null; // Data type of the lexeme (if applicable)
+  scope: string;          // Scope level (e.g., "global", "function:main", "block:10:5")
+  memoryLocation?: string;// Optional: Address or relative position (usually added later)
+  lineNumbers: number[];  // Source code line numbers where the symbol appears/is used
+  size?: number;          // Optional: Size in bytes (for arrays, strings, etc.)
+  attributes?: {          // Optional: Any additional info
+    isConstant?: boolean;
+    value?: any;          // For constants
+    dimensions?: number[]; // For arrays
+    // Add other relevant attributes as needed
+  };
 }
 
 // Define the structure for lexeme statistics
@@ -40,7 +48,16 @@ export interface LexemeStat {
 // Define the overall result structure returned by the lexer
 export interface LexerResult {
   tokens: Token[]; // List of all valid tokens found (filtered for UI display)
-  // errors: Token[]; // Removed - Errors are now logged, not returned for UI display
   symbolTable: SymbolTableEntry[]; // The generated symbol table
   lexemeStats: LexemeStat[]; // Statistics about lexeme types
+  tac: string[]; // Three-Address Code instructions
+}
+
+// Define the structure for a Three-Address Code instruction
+export interface TacInstruction {
+    line: number;       // Original source line number related to this TAC
+    operator: string | null; // Operator (e.g., '+', '-', 'assign', 'goto', 'if_false_goto', 'call', 'param', 'return')
+    arg1: string | null;     // First argument/operand (variable, constant, temporary, label)
+    arg2: string | null;     // Second argument/operand
+    result: string | null;   // Result (variable, temporary, label)
 }

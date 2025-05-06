@@ -19,6 +19,7 @@ export function Analyzer() {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [symbolTable, setSymbolTable] = useState<SymbolTableEntry[]>([]);
   const [lexemeStats, setLexemeStats] = useState<LexemeStat[]>([]);
+  const [tac, setTac] = useState<string[]>([]); // Added state for TAC
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const { toast } = useToast();
 
@@ -28,6 +29,11 @@ export function Analyzer() {
     setIsClient(true);
     // Set initial code based on selected language only on client
     setCode(sampleCode[language]);
+     // Reset results when language changes
+     setTokens([]);
+     setSymbolTable([]);
+     setLexemeStats([]);
+     setTac([]);
   }, [language]); // Rerun when language changes
 
   const handleAnalyze = useCallback(async () => {
@@ -40,17 +46,20 @@ export function Analyzer() {
       return;
     }
     setIsLoading(true);
+    // Reset all results before analysis
     setTokens([]);
     setSymbolTable([]);
     setLexemeStats([]);
+    setTac([]);
 
     try {
        // Simulate network delay / heavy computation
        await new Promise(resolve => setTimeout(resolve, 500));
-      const { tokens, symbolTable, lexemeStats } = analyzeCode(code, language);
+      const { tokens, symbolTable, lexemeStats, tac } = analyzeCode(code, language);
       setTokens(tokens);
       setSymbolTable(symbolTable);
       setLexemeStats(lexemeStats);
+      setTac(tac); // Set the generated TAC
       toast({
         title: "Analysis Complete",
         description: `Found ${tokens.length} tokens. Check results below.`,
@@ -59,13 +68,14 @@ export function Analyzer() {
       console.error("Analysis error:", error);
        toast({
          title: "Analysis Failed",
-         description: "An unexpected error occurred during analysis. Check console for details.",
+         description: `An unexpected error occurred during analysis. ${error instanceof Error ? error.message : 'Check console for details.'}`,
          variant: "destructive",
        });
        // Clear results on failure
         setTokens([]);
         setSymbolTable([]);
         setLexemeStats([]);
+        setTac([]);
     } finally {
       setIsLoading(false);
     }
@@ -76,25 +86,30 @@ export function Analyzer() {
     setTokens([]);
     setSymbolTable([]);
     setLexemeStats([]);
+    setTac([]); // Reset TAC
     toast({ title: "Reset Complete", description: "Editor and results cleared." });
   }, [toast]);
 
   const handleUseSample = useCallback(() => {
     setCode(sampleCode[language]);
+    // Optionally reset results when loading sample code
+    setTokens([]);
+    setSymbolTable([]);
+    setLexemeStats([]);
+    setTac([]);
      toast({ title: "Sample Code Loaded", description: `Loaded sample ${language.toUpperCase()} code.` });
   }, [language, toast]);
 
   const handleLanguageChange = (value: string) => {
     const newLang = value as 'java' | 'cpp';
     setLanguage(newLang);
-    // Optionally, reset code or load new sample when language changes
-    // setCode(sampleCode[newLang]); // Uncomment to auto-load sample on change
-    // Or just reset everything:
-    setCode('');
+    // Reset code and results when language changes to avoid confusion
+    setCode(sampleCode[newLang]); // Load new sample for the selected language
     setTokens([]);
     setSymbolTable([]);
     setLexemeStats([]);
-     toast({ title: "Language Changed", description: `Switched to ${newLang.toUpperCase()}.` });
+    setTac([]);
+     toast({ title: "Language Changed", description: `Switched to ${newLang.toUpperCase()}. Sample loaded.` });
   };
 
 
@@ -104,7 +119,7 @@ export function Analyzer() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-theme(spacing.24))]"> {/* Adjust height */}
       <Card className="flex flex-col h-full">
         <CardContent className="p-4 flex flex-col flex-grow">
           <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
@@ -133,8 +148,9 @@ export function Analyzer() {
               </Button>
             </div>
           </div>
-          <div className="flex-grow h-[60vh] lg:h-auto">
-            <CodeEditor
+          {/* Ensure CodeEditor container allows growth */}
+          <div className="flex-grow min-h-[40vh] lg:min-h-0">
+             <CodeEditor
               language={language}
               value={code}
               onChange={(value) => setCode(value ?? '')}
@@ -147,6 +163,7 @@ export function Analyzer() {
         tokens={tokens}
         symbolTable={symbolTable}
         lexemeStats={lexemeStats}
+        tac={tac} // Pass TAC data
         isLoading={isLoading}
       />
     </div>

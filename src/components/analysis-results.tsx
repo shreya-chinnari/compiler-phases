@@ -24,11 +24,16 @@ const TokenTypeBadge: React.FC<{ type: string }> = ({ type }) => {
   switch (type) {
     case 'KEYWORD': variant = 'default'; break;
     case 'IDENTIFIER': variant = 'secondary'; break;
-    case 'LITERAL': variant = 'outline'; break;
+    case 'LITERAL_STRING': variant = 'outline'; break;
+    case 'LITERAL_NUMBER': variant = 'outline'; break;
+    case 'LITERAL_BOOLEAN': variant = 'outline'; break;
+    case 'LITERAL_CHAR': variant = 'outline'; break;
     case 'OPERATOR': variant = 'outline'; break;
     case 'PUNCTUATION': variant = 'secondary'; break;
-    case 'COMMENT': variant = 'secondary'; break;
+    case 'COMMENT_SINGLE': variant = 'secondary'; break;
+    case 'COMMENT_MULTI': variant = 'secondary'; break;
     case 'ERROR': variant = 'destructive'; break;
+    default: variant = 'secondary'; // Default for potentially new types
   }
   return <Badge variant={variant}>{type}</Badge>;
 };
@@ -71,24 +76,24 @@ export function AnalysisResults({ tokens, errors, symbolTable, lexemeStats, isLo
 
           <ScrollArea className="flex-grow px-4 pb-4">
             <TabsContent value="tokens" className="mt-0">
-              {isLoading ? renderSkeletonTable(3) : (
+              {isLoading ? renderSkeletonTable(4) : ( // Updated skeleton cols to 4
                  tokens.length === 0 && !isLoading ? <p className="text-muted-foreground text-center py-8">No tokens found.</p> :
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Token</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Line</TableHead>
-                       <TableHead>Column</TableHead>
+                      <TableHead className="w-[80px]">Line No.</TableHead>
+                      <TableHead className="w-[80px]">Token No.</TableHead>
+                      <TableHead>Token (lexeme)</TableHead>
+                      <TableHead>Token Type</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {tokens.map((token, index) => (
                       <TableRow key={index}>
+                        <TableCell>{token.line}</TableCell>
+                        <TableCell>{index + 1}</TableCell>
                         <TableCell className="font-mono">{token.token}</TableCell>
                         <TableCell><TokenTypeBadge type={token.type} /></TableCell>
-                        <TableCell>{token.line}</TableCell>
-                        <TableCell>{token.column}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -97,7 +102,7 @@ export function AnalysisResults({ tokens, errors, symbolTable, lexemeStats, isLo
             </TabsContent>
 
             <TabsContent value="errors" className="mt-0">
-              {isLoading ? renderSkeletonTable(3) : (
+              {isLoading ? renderSkeletonTable(4) : ( // Updated skeleton cols to 4
                  errors.length === 0 && !isLoading ? <p className="text-muted-foreground text-center py-8">No errors detected.</p> :
                 <Table>
                   <TableHeader>
@@ -123,7 +128,7 @@ export function AnalysisResults({ tokens, errors, symbolTable, lexemeStats, isLo
             </TabsContent>
 
             <TabsContent value="symbolTable" className="mt-0">
-              {isLoading ? renderSkeletonTable(3) : (
+              {isLoading ? renderSkeletonTable(4) : ( // Updated skeleton cols to 4
                  symbolTable.length === 0 && !isLoading ? <p className="text-muted-foreground text-center py-8">Symbol table is empty.</p> :
                 <Table>
                   <TableHeader>
@@ -149,7 +154,7 @@ export function AnalysisResults({ tokens, errors, symbolTable, lexemeStats, isLo
             </TabsContent>
 
             <TabsContent value="stats" className="mt-0">
-               {isLoading ? renderSkeletonTable(2) : (
+               {isLoading ? renderSkeletonTable(3) : ( // Kept skeleton cols at 3
                  lexemeStats.length === 0 && !isLoading ? <p className="text-muted-foreground text-center py-8">No statistics available.</p> :
                 <Table>
                   <TableHeader>

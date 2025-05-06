@@ -8,12 +8,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import type { Token, SymbolTableEntry, LexemeStat } from '@/lib/types';
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle, List, TableProperties, BarChart3 } from 'lucide-react';
+import { List, TableProperties, BarChart3 } from 'lucide-react';
 
 
 interface AnalysisResultsProps {
   tokens: Token[];
-  errors: Token[];
   symbolTable: SymbolTableEntry[];
   lexemeStats: LexemeStat[];
   isLoading: boolean;
@@ -30,16 +29,17 @@ const TokenTypeBadge: React.FC<{ type: string }> = ({ type }) => {
     case 'LITERAL_CHAR': variant = 'outline'; break;
     case 'OPERATOR': variant = 'outline'; break;
     case 'PUNCTUATION': variant = 'secondary'; break;
-    case 'COMMENT_SINGLE': variant = 'secondary'; break;
-    case 'COMMENT_MULTI': variant = 'secondary'; break;
-    case 'ERROR': variant = 'destructive'; break;
+    // Comments and Whitespace are filtered out before display
+    // case 'COMMENT_SINGLE': variant = 'secondary'; break;
+    // case 'COMMENT_MULTI': variant = 'secondary'; break;
+    // ERROR type is removed
     default: variant = 'secondary'; // Default for potentially new types
   }
   return <Badge variant={variant}>{type}</Badge>;
 };
 
 
-export function AnalysisResults({ tokens, errors, symbolTable, lexemeStats, isLoading }: AnalysisResultsProps) {
+export function AnalysisResults({ tokens, symbolTable, lexemeStats, isLoading }: AnalysisResultsProps) {
 
   const renderSkeletonTable = (cols: number) => (
     <Table>
@@ -58,7 +58,7 @@ export function AnalysisResults({ tokens, errors, symbolTable, lexemeStats, isLo
     </Table>
   );
 
-  const hasContent = tokens.length > 0 || errors.length > 0 || symbolTable.length > 0 || lexemeStats.length > 0;
+  const hasContent = tokens.length > 0 || symbolTable.length > 0 || lexemeStats.length > 0;
 
   return (
     <Card className="h-full flex flex-col">
@@ -69,14 +69,13 @@ export function AnalysisResults({ tokens, errors, symbolTable, lexemeStats, isLo
         <Tabs defaultValue="tokens" className="h-full flex flex-col">
           <TabsList className="mx-4 mt-0 mb-2 shrink-0">
             <TabsTrigger value="tokens" className="flex items-center gap-1"><List className='h-4 w-4'/> Tokens <Badge variant="secondary" className="ml-1">{isLoading ? '...' : tokens.length}</Badge></TabsTrigger>
-            <TabsTrigger value="errors" className="flex items-center gap-1"><AlertCircle className='h-4 w-4 text-destructive'/> Errors <Badge variant={errors.length > 0 ? "destructive" : "secondary"} className="ml-1">{isLoading ? '...' : errors.length}</Badge></TabsTrigger>
             <TabsTrigger value="symbolTable" className="flex items-center gap-1"><TableProperties className='h-4 w-4'/> Symbol Table <Badge variant="secondary" className="ml-1">{isLoading ? '...' : symbolTable.length}</Badge></TabsTrigger>
             <TabsTrigger value="stats" className="flex items-center gap-1"><BarChart3 className='h-4 w-4'/> Lexeme Stats</TabsTrigger>
           </TabsList>
 
           <ScrollArea className="flex-grow px-4 pb-4">
             <TabsContent value="tokens" className="mt-0">
-              {isLoading ? renderSkeletonTable(4) : ( // Updated skeleton cols to 4
+              {isLoading ? renderSkeletonTable(4) : (
                  tokens.length === 0 && !isLoading ? <p className="text-muted-foreground text-center py-8">No tokens found.</p> :
                 <Table>
                   <TableHeader>
@@ -101,34 +100,8 @@ export function AnalysisResults({ tokens, errors, symbolTable, lexemeStats, isLo
               )}
             </TabsContent>
 
-            <TabsContent value="errors" className="mt-0">
-              {isLoading ? renderSkeletonTable(4) : ( // Updated skeleton cols to 4
-                 errors.length === 0 && !isLoading ? <p className="text-muted-foreground text-center py-8">No errors detected.</p> :
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Error Token</TableHead>
-                      <TableHead>Message</TableHead>
-                      <TableHead>Line</TableHead>
-                      <TableHead>Column</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {errors.map((error, index) => (
-                      <TableRow key={index} className="text-destructive">
-                        <TableCell className="font-mono">{error.token}</TableCell>
-                        <TableCell>{error.message || 'Invalid token'}</TableCell>
-                        <TableCell>{error.line}</TableCell>
-                         <TableCell>{error.column}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </TabsContent>
-
             <TabsContent value="symbolTable" className="mt-0">
-              {isLoading ? renderSkeletonTable(4) : ( // Updated skeleton cols to 4
+              {isLoading ? renderSkeletonTable(4) : (
                  symbolTable.length === 0 && !isLoading ? <p className="text-muted-foreground text-center py-8">Symbol table is empty.</p> :
                 <Table>
                   <TableHeader>
@@ -154,7 +127,7 @@ export function AnalysisResults({ tokens, errors, symbolTable, lexemeStats, isLo
             </TabsContent>
 
             <TabsContent value="stats" className="mt-0">
-               {isLoading ? renderSkeletonTable(3) : ( // Kept skeleton cols at 3
+               {isLoading ? renderSkeletonTable(3) : (
                  lexemeStats.length === 0 && !isLoading ? <p className="text-muted-foreground text-center py-8">No statistics available.</p> :
                 <Table>
                   <TableHeader>

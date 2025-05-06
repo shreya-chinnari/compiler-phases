@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { CodeEditor } from '@/components/code-editor';
 import { AnalysisResults } from '@/components/analysis-results';
 import type { Token, SymbolTableEntry, LexemeStat } from '@/lib/types';
-import { analyzeCode } from '@/lib/lexer'; // We will create this lexer logic later
+import { analyzeCode } from '@/lib/lexer';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Play, Trash2, FileCode } from 'lucide-react';
@@ -17,7 +17,6 @@ export function Analyzer() {
   const [code, setCode] = useState<string>('');
   const [language, setLanguage] = useState<'java' | 'cpp'>('java');
   const [tokens, setTokens] = useState<Token[]>([]);
-  const [errors, setErrors] = useState<Token[]>([]);
   const [symbolTable, setSymbolTable] = useState<SymbolTableEntry[]>([]);
   const [lexemeStats, setLexemeStats] = useState<LexemeStat[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -42,30 +41,31 @@ export function Analyzer() {
     }
     setIsLoading(true);
     setTokens([]);
-    setErrors([]);
     setSymbolTable([]);
     setLexemeStats([]);
 
     try {
        // Simulate network delay / heavy computation
        await new Promise(resolve => setTimeout(resolve, 500));
-      const { tokens, errors, symbolTable, lexemeStats } = analyzeCode(code, language);
+      const { tokens, symbolTable, lexemeStats } = analyzeCode(code, language);
       setTokens(tokens);
-      setErrors(errors);
       setSymbolTable(symbolTable);
       setLexemeStats(lexemeStats);
       toast({
         title: "Analysis Complete",
-        description: `Found ${tokens.length} tokens and ${errors.length} errors.`,
+        description: `Found ${tokens.length} tokens. Check results below.`,
       });
     } catch (error) {
       console.error("Analysis error:", error);
        toast({
          title: "Analysis Failed",
-         description: "An unexpected error occurred during analysis.",
+         description: "An unexpected error occurred during analysis. Check console for details.",
          variant: "destructive",
        });
-       setErrors([{ token: 'Analysis Error', type: 'ERROR', line: 1, column: 1, message: 'Failed to process code.' }]);
+       // Clear results on failure
+        setTokens([]);
+        setSymbolTable([]);
+        setLexemeStats([]);
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +74,6 @@ export function Analyzer() {
   const handleReset = useCallback(() => {
     setCode('');
     setTokens([]);
-    setErrors([]);
     setSymbolTable([]);
     setLexemeStats([]);
     toast({ title: "Reset Complete", description: "Editor and results cleared." });
@@ -93,7 +92,6 @@ export function Analyzer() {
     // Or just reset everything:
     setCode('');
     setTokens([]);
-    setErrors([]);
     setSymbolTable([]);
     setLexemeStats([]);
      toast({ title: "Language Changed", description: `Switched to ${newLang.toUpperCase()}.` });
@@ -147,7 +145,6 @@ export function Analyzer() {
 
       <AnalysisResults
         tokens={tokens}
-        errors={errors}
         symbolTable={symbolTable}
         lexemeStats={lexemeStats}
         isLoading={isLoading}

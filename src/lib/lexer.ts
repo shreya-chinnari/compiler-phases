@@ -62,9 +62,9 @@ const multiLineCommentRegexCpp = /^\/\*[\s\S]*?\*\//; // Same as Java for basic 
 
 // --- Lexer Core Function ---
 
-export function analyzeCode(code: string, language: 'java' | 'cpp'): LexerResult {
+export function analyzeCode(code: string, language: 'java' | 'cpp'): Omit<LexerResult, 'errors'> {
   const tokens: Token[] = [];
-  const errors: Token[] = [];
+  // Errors are now logged to console instead of collected
   const symbolTable = new Map<string, SymbolTableEntry>(); // Use Map for easier updates
   let currentScope: string | null = null; // Simple scope tracking for demo
 
@@ -108,7 +108,8 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): LexerResult
     }
     if (match && tokenType?.startsWith('COMMENT')) {
         tokenValue = match[0];
-        tokens.push({ token: tokenValue, type: tokenType, line, column });
+        // Don't add comments to the main token list for analysis display
+        // tokens.push({ token: tokenValue, type: tokenType, line, column });
 
         const lines = tokenValue.split('\n');
          if (lines.length > 1) {
@@ -161,21 +162,31 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): LexerResult
     // 4. Operators and Punctuation (needs careful ordering)
     // Check for multi-character operators first
     let opMatch = false;
-    for (const op of ['>>>=', '>>>', '<<=', '>>=', '->', '::', '++', '--', '==', '!=', '>=', '<=', '&&', '||', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=']) {
+    // Sort operators by length descending to match longest first
+    const sortedOperators = Array.from(operators).sort((a, b) => b.length - a.length);
+
+    for (const op of sortedOperators) {
        if (remainingCode.startsWith(op)) {
-            tokenType = 'OPERATOR';
-            tokenValue = op;
-            opMatch = true;
-            break;
+            // Need additional check for '>' potentially being part of generics/templates vs operator
+            // This is context-sensitive and hard to do perfectly without a parser.
+            // Basic check: if followed by space or not '<'/'=', likely operator.
+            const nextChar = remainingCode[op.length];
+             if (op === '>' && (nextChar === '<' || nextChar === '=')) {
+                 // Skip if it looks like start of template `>>` or `>=`
+             } else if (op === '<' && (nextChar === '>' || nextChar === '=')) {
+                 // Skip if it looks like start of template `<<` or `<=`
+            } else {
+                tokenType = 'OPERATOR';
+                tokenValue = op;
+                opMatch = true;
+                break;
+            }
        }
     }
-    // Then single-character operators/punctuation
+    // Then single-character punctuation
     if (!opMatch) {
         const char = remainingCode[0];
-        if (operators.has(char)) {
-            tokenType = 'OPERATOR';
-            tokenValue = char;
-        } else if (punctuation.has(char)) {
+        if (punctuation.has(char)) {
             tokenType = 'PUNCTUATION';
             tokenValue = char;
 
@@ -188,20 +199,18 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): LexerResult
 
 
     // --- Token Processing ---
-    if (tokenValue) {
-      tokens.push({ token: tokenValue, type: tokenType!, line, column });
+    if (tokenValue && tokenType) { // Ensure tokenType is set
+      // Exclude whitespace and comments from the final token list sent to UI
+      if (tokenType !== 'WHITESPACE' && !tokenType.startsWith('COMMENT')) {
+         tokens.push({ token: tokenValue, type: tokenType, line, column });
+      }
       column += tokenValue.length;
       remainingCode = remainingCode.substring(tokenValue.length);
     } else {
-      // No match found - ERROR
+      // No match found - Log ERROR, but don't add to UI error list
       const errorChar = remainingCode[0];
-      errors.push({
-        token: errorChar,
-        type: 'ERROR',
-        line,
-        column,
-        message: `Invalid character '${errorChar}'`,
-      });
+      console.error(`Lexer Error: Invalid character '${errorChar}' at Line ${line}, Column ${column}`);
+      // Skip the invalid character and continue lexing
       column += 1;
       remainingCode = remainingCode.substring(1);
     }
@@ -209,11 +218,10 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): LexerResult
 
 
   // --- Calculate Lexeme Stats ---
-   const lexemeStats = calculateStats(tokens);
+   const lexemeStats = calculateStats(tokens); // Calculate stats based on the *filtered* tokens
 
 
-  return { tokens: tokens.filter(t => t.type !== 'WHITESPACE' && !t.type.startsWith('COMMENT')), // Optionally filter out whitespace/comments from final token list
-            errors,
+  return { tokens, // Return filtered tokens
             symbolTable: Array.from(symbolTable.values()), // Convert Map back to Array
             lexemeStats };
 }
@@ -224,10 +232,7 @@ function calculateStats(tokens: Token[]): LexemeStat[] {
     let totalTokens = 0;
 
     for (const token of tokens) {
-        // Exclude whitespace/comments from stats if desired
-        if (token.type === 'WHITESPACE' || token.type.startsWith('COMMENT')) {
-            continue;
-        }
+        // Tokens passed here are already filtered (no whitespace/comments)
         counts[token.type] = (counts[token.type] || 0) + 1;
         totalTokens++;
     }

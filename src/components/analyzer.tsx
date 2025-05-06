@@ -136,7 +136,7 @@ export function Analyzer() {
                  </SelectContent>
                </Select>
                {/* Style the Sample button */}
-               <Button onClick={handleUseSample} variant="outline" size="sm" disabled={isLoading} className="border-accent text-accent-foreground hover:bg-accent/80 hover:text-accent-foreground">
+               <Button onClick={handleUseSample} variant="secondary" size="sm" disabled={isLoading}>
                  <FileCode className="mr-1 h-4 w-4" /> Sample
                </Button>
             </div>

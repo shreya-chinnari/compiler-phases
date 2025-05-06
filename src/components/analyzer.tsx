@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -5,9 +6,10 @@ import { CodeEditor } from '@/components/code-editor';
 import { AnalysisResults } from '@/components/analysis-results';
 import type { Token, SymbolTableEntry, LexemeStat } from '@/lib/types';
 import { analyzeCode } from '@/lib/lexer';
+import { generateMachineCode } from '@/ai/flows/generate-machine-code-flow'; // Import the Genkit flow
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Trash2, FileCode } from 'lucide-react';
+import { Play, Trash2, FileCode, Cpu } from 'lucide-react'; // Added Cpu icon
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
 import { sampleCode } from '@/lib/sample-code';
@@ -19,8 +21,10 @@ export function Analyzer() {
   const [tokens, setTokens] = useState<Token[]>([]);
   const [symbolTable, setSymbolTable] = useState<SymbolTableEntry[]>([]);
   const [lexemeStats, setLexemeStats] = useState<LexemeStat[]>([]);
-  const [tac, setTac] = useState<string[]>([]); // Added state for TAC
+  const [tac, setTac] = useState<string[]>([]);
+  const [machineCode, setMachineCode] = useState<string[]>([]); // Added state for Machine Code
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isMachineCodeLoading, setIsMachineCodeLoading] = useState<boolean>(false); // Loading state for machine code
   const { toast } = useToast();
 
   // Avoid hydration mismatch for client-side state
@@ -34,6 +38,7 @@ export function Analyzer() {
      setSymbolTable([]);
      setLexemeStats([]);
      setTac([]);
+     setMachineCode([]); // Reset machine code
   }, [language]); // Rerun when language changes
 
   const handleAnalyze = useCallback(async () => {
@@ -46,11 +51,12 @@ export function Analyzer() {
       return;
     }
     setIsLoading(true);
-    // Reset all results before analysis
+    // Reset analysis results before analysis
     setTokens([]);
     setSymbolTable([]);
     setLexemeStats([]);
     setTac([]);
+    // Keep machine code as is unless explicitly regenerated
 
     try {
        // Simulate network delay / heavy computation
@@ -59,7 +65,7 @@ export function Analyzer() {
       setTokens(tokens);
       setSymbolTable(symbolTable);
       setLexemeStats(lexemeStats);
-      setTac(tac); // Set the generated TAC
+      setTac(tac);
       toast({
         title: "Analysis Complete",
         description: `Found ${tokens.length} tokens. Check results below.`,
@@ -81,12 +87,46 @@ export function Analyzer() {
     }
   }, [code, language, toast]);
 
+  // --- Handler for Generating Machine Code ---
+  const handleGenerateMachineCode = useCallback(async () => {
+      if (!code.trim()) {
+         toast({
+           title: "Input Required",
+           description: "Please enter some code to generate machine code.",
+           variant: "destructive",
+         });
+        return;
+      }
+      setIsMachineCodeLoading(true);
+      setMachineCode([]); // Reset previous machine code
+
+      try {
+        const result = await generateMachineCode({ code, language });
+        setMachineCode(result.machineCode);
+        toast({
+          title: "Machine Code Generated",
+          description: `Successfully generated machine code instructions.`,
+        });
+      } catch (error) {
+        console.error("Machine code generation error:", error);
+         toast({
+           title: "Machine Code Generation Failed",
+           description: `An error occurred. ${error instanceof Error ? error.message : 'Check console for details.'}`,
+           variant: "destructive",
+         });
+         setMachineCode([]); // Clear on failure
+      } finally {
+        setIsMachineCodeLoading(false);
+      }
+    }, [code, language, toast]);
+
   const handleReset = useCallback(() => {
     setCode('');
     setTokens([]);
     setSymbolTable([]);
     setLexemeStats([]);
-    setTac([]); // Reset TAC
+    setTac([]);
+    setMachineCode([]); // Reset machine code
     toast({ title: "Reset Complete", description: "Editor and results cleared." });
   }, [toast]);
 
@@ -97,6 +137,7 @@ export function Analyzer() {
     setSymbolTable([]);
     setLexemeStats([]);
     setTac([]);
+    setMachineCode([]); // Reset machine code when loading sample
      toast({ title: "Sample Code Loaded", description: `Loaded sample ${language.toUpperCase()} code.` });
   }, [language, toast]);
 
@@ -109,6 +150,7 @@ export function Analyzer() {
     setSymbolTable([]);
     setLexemeStats([]);
     setTac([]);
+    setMachineCode([]); // Reset machine code on language change
      toast({ title: "Language Changed", description: `Switched to ${newLang.toUpperCase()}. Sample loaded.` });
   };
 
@@ -126,7 +168,7 @@ export function Analyzer() {
           <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
             <div className='flex items-center gap-2'>
              {/* Style the select dropdown */}
-             <Select onValueChange={handleLanguageChange} value={language} disabled={isLoading}>
+             <Select onValueChange={handleLanguageChange} value={language} disabled={isLoading || isMachineCodeLoading}>
                  <SelectTrigger className="w-[120px] bg-card border-accent focus:ring-accent/50">
                    <SelectValue placeholder="Language" />
                  </SelectTrigger>
@@ -136,18 +178,22 @@ export function Analyzer() {
                  </SelectContent>
                </Select>
                {/* Style the Sample button */}
-               <Button onClick={handleUseSample} variant="secondary" size="sm" disabled={isLoading}>
+               <Button onClick={handleUseSample} variant="secondary" size="sm" disabled={isLoading || isMachineCodeLoading} className="bg-secondary text-secondary-foreground hover:bg-secondary/80">
                  <FileCode className="mr-1 h-4 w-4" /> Sample
                </Button>
             </div>
 
             <div className="flex gap-2">
                {/* Style the Analyze button */}
-               <Button onClick={handleAnalyze} disabled={isLoading || !code.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+               <Button onClick={handleAnalyze} disabled={isLoading || !code.trim() || isMachineCodeLoading} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                  <Play className="mr-1 h-4 w-4" /> {isLoading ? 'Analyzing...' : 'Analyze'}
                </Button>
+               {/* Added Generate Machine Code button */}
+               <Button onClick={handleGenerateMachineCode} disabled={isMachineCodeLoading || !code.trim() || isLoading} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                  <Cpu className="mr-1 h-4 w-4" /> {isMachineCodeLoading ? 'Generating...' : 'Generate MC'}
+               </Button>
                {/* Style the Reset button */}
-               <Button onClick={handleReset} variant="outline" size="icon" disabled={isLoading} className="border-destructive text-destructive hover:bg-destructive/10">
+               <Button onClick={handleReset} variant="outline" size="icon" disabled={isLoading || isMachineCodeLoading} className="border-destructive text-destructive hover:bg-destructive/10">
                  <Trash2 className="h-4 w-4" />
                   <span className="sr-only">Reset</span>
                </Button>
@@ -168,8 +214,10 @@ export function Analyzer() {
         tokens={tokens}
         symbolTable={symbolTable}
         lexemeStats={lexemeStats}
-        tac={tac} // Pass TAC data
+        tac={tac}
+        machineCode={machineCode} // Pass machine code data
         isLoading={isLoading}
+        isMachineCodeLoading={isMachineCodeLoading} // Pass machine code loading state
       />
     </div>
   );

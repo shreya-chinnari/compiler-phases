@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Token, SymbolTableEntry, LexemeStat } from '@/lib/types';
 import { Skeleton } from "@/components/ui/skeleton";
-import { List, TableProperties, BarChart3, TerminalSquare } from 'lucide-react';
+import { List, TableProperties, BarChart3, TerminalSquare, Cpu } from 'lucide-react';
 import { cn } from '@/lib/utils'; // Import cn utility
 
 interface AnalysisResultsProps {
@@ -16,7 +16,9 @@ interface AnalysisResultsProps {
   symbolTable: SymbolTableEntry[];
   lexemeStats: LexemeStat[];
   tac: string[];
+  machineCode: string[];
   isLoading: boolean;
+  isMachineCodeLoading: boolean; // Add prop for machine code loading state
 }
 
 // Updated TokenTypeBadge component using Tailwind JIT classes
@@ -75,7 +77,15 @@ const TokenTypeBadge: React.FC<{ type: string }> = ({ type }) => {
 };
 
 
-export function AnalysisResults({ tokens, symbolTable, lexemeStats, tac, isLoading }: AnalysisResultsProps) {
+export function AnalysisResults({
+  tokens,
+  symbolTable,
+  lexemeStats,
+  tac,
+  machineCode, // Add machineCode prop
+  isLoading,
+  isMachineCodeLoading // Add isMachineCodeLoading prop
+}: AnalysisResultsProps) {
 
   // Ensure no whitespace nodes are rendered within TableRow
   const renderSkeletonTable = (cols: number, rows: number = 5) => (
@@ -112,6 +122,7 @@ export function AnalysisResults({ tokens, symbolTable, lexemeStats, tac, isLoadi
 
 
   const hasContent = tokens.length > 0 || symbolTable.length > 0 || lexemeStats.length > 0 || tac.length > 0;
+  const hasMachineCodeContent = machineCode.length > 0;
 
   return (
     <Card className="h-full flex flex-col border-accent shadow-lg"> {/* Added border and shadow */}
@@ -121,11 +132,12 @@ export function AnalysisResults({ tokens, symbolTable, lexemeStats, tac, isLoadi
       <CardContent className="flex-grow p-0 overflow-hidden bg-card"> {/* Ensure card bg */}
         <Tabs defaultValue="tokens" className="h-full flex flex-col">
           {/* Apply the colorful tab styles */}
-           <TabsList className="tabs-list-colorful mx-4 mt-4 mb-2 shrink-0 grid grid-cols-4 gap-1 h-auto">
+           <TabsList className="tabs-list-colorful mx-4 mt-4 mb-2 shrink-0 grid grid-cols-5 gap-1 h-auto"> {/* Updated grid-cols-5 */}
              <TabsTrigger value="tokens" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2"><List className='h-4 w-4'/> Tokens</TabsTrigger>
              <TabsTrigger value="symbolTable" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2"><TableProperties className='h-4 w-4'/> Symbol Table</TabsTrigger>
              <TabsTrigger value="stats" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2"><BarChart3 className='h-4 w-4'/> Lexeme Stats</TabsTrigger>
              <TabsTrigger value="tac" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2"><TerminalSquare className='h-4 w-4'/> TAC</TabsTrigger>
+             <TabsTrigger value="machineCode" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2"><Cpu className='h-4 w-4'/> Machine Code</TabsTrigger> {/* Added Machine Code Tab */}
            </TabsList>
 
           <ScrollArea className="flex-grow px-4 pb-4">
@@ -226,9 +238,23 @@ export function AnalysisResults({ tokens, symbolTable, lexemeStats, tac, isLoadi
                )}
             </TabsContent>
 
-              { !isLoading && !hasContent && (
+             {/* Added Machine Code Tab Content */}
+             <TabsContent value="machineCode" className="mt-0">
+               {isMachineCodeLoading ? renderSkeletonList() : ( // Use separate loading state
+                 machineCode.length === 0 && !isMachineCodeLoading ? <p className="text-muted-foreground text-center py-8">Generate machine code from the editor.</p> :
+                <pre className="bg-gradient-to-bl from-muted/60 to-primary/20 p-4 rounded border border-primary/50 text-sm font-mono overflow-x-auto text-foreground/90 shadow-inner">
+                    {machineCode.map((instruction, index) => (
+                      <div key={index} className={cn("py-0.5", index % 2 === 0 ? "bg-transparent" : "bg-secondary/20 rounded")}>
+                          <span className='text-accent/90 mr-2'>{index.toString(16).padStart(4, '0')}:</span> {instruction} {/* Example: Display line number as hex */}
+                      </div>
+                    ))}
+                </pre>
+               )}
+            </TabsContent>
+
+              { !isLoading && !isMachineCodeLoading && !hasContent && !hasMachineCodeContent && (
                  <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-8">
-                     <p>Enter code in the editor and click 'Analyze' to see the results.</p>
+                     <p>Enter code in the editor and click 'Analyze' or 'Generate Machine Code' to see the results.</p>
                 </div>
             )}
           </ScrollArea>
@@ -237,4 +263,3 @@ export function AnalysisResults({ tokens, symbolTable, lexemeStats, tac, isLoadi
     </Card>
   );
 }
-

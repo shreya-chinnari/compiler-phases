@@ -11,7 +11,7 @@ import type { GenerateIntermediateCodeOutput } from '@/ai/flows/generate-interme
 import type { AnalyzeSyntaxOutput } from '@/ai/flows/analyze-syntax-flow';
 import type { AnalyzeSemanticsOutput } from '@/ai/flows/analyze-semantics-flow';
 import { Skeleton } from "@/components/ui/skeleton";
-import { List, TableProperties, BarChart3, TerminalSquare, Cpu, Braces, Binary, FileJson2, ScanSearch, AlertTriangle } from 'lucide-react';
+import { List, TableProperties, BarChart3, TerminalSquare, Cpu, Braces, Binary, FileJson2, ScanSearch, AlertTriangle, Network } from 'lucide-react'; // Changed Sitemap to Network
 import { cn } from '@/lib/utils';
 
 interface AnalysisResultsProps {
@@ -106,7 +106,7 @@ export function AnalysisResults({
   const hasLexerContent = tokens.length > 0 || symbolTable.length > 0 || lexemeStats.length > 0 || tac.length > 0;
   const hasMachineCodeContent = machineCode.length > 0;
   const hasIntermediateCodeContent = intermediateCode !== null && (intermediateCode.quadruples.length > 0 || intermediateCode.triples.length > 0 || intermediateCode.indirectTriples.instructions.length > 0);
-  const hasSyntaxContent = syntaxAnalysis !== null && ( (syntaxAnalysis.astRepresentation && syntaxAnalysis.astRepresentation.length > 0) || (syntaxAnalysis.syntaxErrors && syntaxAnalysis.syntaxErrors.length > 0));
+  const hasSyntaxContent = syntaxAnalysis !== null && ( (syntaxAnalysis.astRepresentation && syntaxAnalysis.astRepresentation.length > 0) || (syntaxAnalysis.syntaxErrors && syntaxAnalysis.syntaxErrors.length > 0) || (syntaxAnalysis.parseTree && syntaxAnalysis.parseTree.length > 0));
   const hasSemanticsContent = semanticAnalysis !== null && ( (semanticAnalysis.semanticErrors && semanticAnalysis.semanticErrors.length > 0) || (semanticAnalysis.warnings && semanticAnalysis.warnings.length > 0) );
 
 
@@ -123,6 +123,7 @@ export function AnalysisResults({
                <TabsTrigger value="symbolTable" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><TableProperties className='h-4 w-4'/> Symbols</TabsTrigger>
                <TabsTrigger value="stats" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><BarChart3 className='h-4 w-4'/> Stats</TabsTrigger>
                <TabsTrigger value="tac" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><TerminalSquare className='h-4 w-4'/> TAC</TabsTrigger>
+               <TabsTrigger value="parseTree" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><Network className='h-4 w-4'/> Parse Tree</TabsTrigger>
                <TabsTrigger value="ast" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><FileJson2 className='h-4 w-4'/> AST</TabsTrigger>
                <TabsTrigger value="syntaxErrors" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><AlertTriangle className='h-4 w-4'/> Syntax Err</TabsTrigger>
                <TabsTrigger value="semanticErrors" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><ScanSearch className='h-4 w-4'/> Semantic Err</TabsTrigger>
@@ -169,12 +170,16 @@ export function AnalysisResults({
             </TabsContent>
 
             {/* Syntax Analysis Tabs */}
+            <TabsContent value="parseTree" className="mt-0">
+                <ResultListDisplay title="Parse Tree (Simplified)" items={syntaxAnalysis?.parseTree} isLoading={isSyntaxLoading} loadingMessage="Generating Parse Tree..." emptyMessage="Perform Syntax Analysis to see Parse Tree." gradientFrom="from-purple-100 dark:from-purple-900/30" gradientTo="to-pink-100 dark:to-pink-900/30" borderColor="border-purple-300 dark:border-purple-700" indexFormatter={() => ''} itemClassName="text-left" />
+                {syntaxAnalysis && !isSyntaxLoading && <p className="text-xs text-muted-foreground mt-2 px-1">{syntaxAnalysis.parseStatus}</p>}
+            </TabsContent>
             <TabsContent value="ast" className="mt-0">
-                <ResultListDisplay title="Abstract Syntax Tree (Simplified)" items={syntaxAnalysis?.astRepresentation} isLoading={isSyntaxLoading} loadingMessage="Generating AST..." emptyMessage="Perform Syntax Analysis to see AST." gradientFrom="from-sky-100" gradientTo="to-indigo-100" borderColor="border-sky-300" indexFormatter={() => ''} itemClassName="text-left" />
+                <ResultListDisplay title="Abstract Syntax Tree (Simplified)" items={syntaxAnalysis?.astRepresentation} isLoading={isSyntaxLoading} loadingMessage="Generating AST..." emptyMessage="Perform Syntax Analysis to see AST." gradientFrom="from-sky-100 dark:from-sky-900/30" gradientTo="to-indigo-100 dark:to-indigo-900/30" borderColor="border-sky-300 dark:border-sky-700" indexFormatter={() => ''} itemClassName="text-left" />
                 {syntaxAnalysis && !isSyntaxLoading && <p className="text-xs text-muted-foreground mt-2 px-1">{syntaxAnalysis.parseStatus}</p>}
             </TabsContent>
             <TabsContent value="syntaxErrors" className="mt-0">
-                <ResultListDisplay title="Syntax Errors" items={syntaxAnalysis?.syntaxErrors} isLoading={isSyntaxLoading} loadingMessage="Checking for syntax errors..." emptyMessage="No syntax errors reported or analysis not run." gradientFrom="from-red-100" gradientTo="to-pink-100" borderColor="border-red-300" indexFormatter={(idx) => `Err ${idx+1}`} itemClassName="text-destructive" />
+                <ResultListDisplay title="Syntax Errors" items={syntaxAnalysis?.syntaxErrors} isLoading={isSyntaxLoading} loadingMessage="Checking for syntax errors..." emptyMessage="No syntax errors reported or analysis not run." gradientFrom="from-red-100 dark:from-red-900/30" gradientTo="to-pink-100 dark:to-pink-900/30" borderColor="border-red-300 dark:border-red-700" indexFormatter={(idx) => `Err ${idx+1}`} itemClassName="text-destructive" />
                  {syntaxAnalysis && !isSyntaxLoading && <p className="text-xs text-muted-foreground mt-2 px-1">{syntaxAnalysis.parseStatus}</p>}
             </TabsContent>
 
@@ -183,8 +188,8 @@ export function AnalysisResults({
                  {isSemanticsLoading ? renderSkeletonList(10) : (
                      semanticAnalysis ? (
                          <>
-                             <ResultListDisplay title="Semantic Errors" items={semanticAnalysis.semanticErrors} isLoading={false} loadingMessage="" emptyMessage="No semantic errors reported." gradientFrom="from-orange-100" gradientTo="to-amber-100" borderColor="border-orange-300" indexFormatter={(idx) => `Error ${idx+1}`} itemClassName="text-amber-700 dark:text-amber-400" />
-                             <ResultListDisplay title="Semantic Warnings" items={semanticAnalysis.warnings} isLoading={false} loadingMessage="" emptyMessage="No semantic warnings." gradientFrom="from-yellow-100" gradientTo="to-lime-100" borderColor="border-yellow-300" indexFormatter={(idx) => `Warn ${idx+1}`} itemClassName="text-yellow-700 dark:text-yellow-400" />
+                             <ResultListDisplay title="Semantic Errors" items={semanticAnalysis.semanticErrors} isLoading={false} loadingMessage="" emptyMessage="No semantic errors reported." gradientFrom="from-orange-100 dark:from-orange-900/30" gradientTo="to-amber-100 dark:to-amber-900/30" borderColor="border-orange-300 dark:border-orange-700" indexFormatter={(idx) => `Error ${idx+1}`} itemClassName="text-amber-700 dark:text-amber-400" />
+                             <ResultListDisplay title="Semantic Warnings" items={semanticAnalysis.warnings} isLoading={false} loadingMessage="" emptyMessage="No semantic warnings." gradientFrom="from-yellow-100 dark:from-yellow-900/30" gradientTo="to-lime-100 dark:to-lime-900/30" borderColor="border-yellow-300 dark:border-yellow-700" indexFormatter={(idx) => `Warn ${idx+1}`} itemClassName="text-yellow-700 dark:text-yellow-400" />
                               <p className="text-xs text-muted-foreground mt-2 px-1">{semanticAnalysis.analysisSummary}</p>
                          </>
                      ) : <p className="text-muted-foreground text-center py-8">Perform Semantic Analysis to see results.</p>
@@ -193,26 +198,26 @@ export function AnalysisResults({
 
 
             <TabsContent value="quadruples" className="mt-0">
-                <ResultListDisplay title="Quadruples" items={intermediateCode?.quadruples} isLoading={isIntermediateCodeLoading} loadingMessage="Generating Quadruples..." emptyMessage="Generate IC." gradientFrom="from-blue-100" gradientTo="to-purple-100" borderColor="border-blue-300" indexFormatter={(index) => `${index}`} />
+                <ResultListDisplay title="Quadruples" items={intermediateCode?.quadruples} isLoading={isIntermediateCodeLoading} loadingMessage="Generating Quadruples..." emptyMessage="Generate IC to see Quadruples." gradientFrom="from-blue-100 dark:from-blue-900/30" gradientTo="to-purple-100 dark:to-purple-900/30" borderColor="border-blue-300 dark:border-blue-700" indexFormatter={(index) => `${index}`} />
             </TabsContent>
 
             <TabsContent value="triples" className="mt-0">
-                <ResultListDisplay title="Triples" items={intermediateCode?.triples} isLoading={isIntermediateCodeLoading} loadingMessage="Generating Triples..." emptyMessage="Generate IC." gradientFrom="from-green-100" gradientTo="to-teal-100" borderColor="border-green-300" indexFormatter={() => ``} />
+                <ResultListDisplay title="Triples" items={intermediateCode?.triples} isLoading={isIntermediateCodeLoading} loadingMessage="Generating Triples..." emptyMessage="Generate IC to see Triples." gradientFrom="from-green-100 dark:from-green-900/30" gradientTo="to-teal-100 dark:to-teal-900/30" borderColor="border-green-300 dark:border-green-700" indexFormatter={() => ``} />
              </TabsContent>
 
              <TabsContent value="indirectTriples" className="mt-0">
                  {isIntermediateCodeLoading ? renderSkeletonList(15) : (
                      intermediateCode?.indirectTriples && (intermediateCode.indirectTriples.instructions.length > 0 || intermediateCode.indirectTriples.triplesTable.length > 0) ? (
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <ResultListDisplay title="Indirect Triples - Instructions" items={intermediateCode.indirectTriples.instructions} isLoading={false} loadingMessage="" emptyMessage="No instructions." gradientFrom="from-yellow-100" gradientTo="to-orange-100" borderColor="border-yellow-300" indexFormatter={(index) => `${index}`} />
-                             <ResultListDisplay title="Indirect Triples - Triples Table" items={intermediateCode.indirectTriples.triplesTable} isLoading={false} loadingMessage="" emptyMessage="Triples table empty." gradientFrom="from-pink-100" gradientTo="to-red-100" borderColor="border-pink-300" indexFormatter={() => ``} />
+                             <ResultListDisplay title="Indirect Triples - Instructions" items={intermediateCode.indirectTriples.instructions} isLoading={false} loadingMessage="" emptyMessage="No instructions." gradientFrom="from-yellow-100 dark:from-yellow-900/30" gradientTo="to-orange-100 dark:to-orange-900/30" borderColor="border-yellow-300 dark:border-yellow-700" indexFormatter={(index) => `${index}`} />
+                             <ResultListDisplay title="Indirect Triples - Triples Table" items={intermediateCode.indirectTriples.triplesTable} isLoading={false} loadingMessage="" emptyMessage="Triples table empty." gradientFrom="from-pink-100 dark:from-pink-900/30" gradientTo="to-red-100 dark:to-red-900/30" borderColor="border-pink-300 dark:border-pink-700" indexFormatter={() => ``} />
                          </div>
-                     ) : ( <p className="text-muted-foreground text-center py-8">Generate IC.</p> )
+                     ) : ( <p className="text-muted-foreground text-center py-8">Generate IC to see Indirect Triples.</p> )
                  )}
              </TabsContent>
 
              <TabsContent value="machineCode" className="mt-0">
-                <ResultListDisplay title="Machine Code" items={machineCode} isLoading={isMachineCodeLoading} loadingMessage="Generating MC..." emptyMessage="Generate MC." gradientFrom="from-muted/60" gradientTo="to-primary/20" borderColor="border-primary/50" indexFormatter={(index) => index.toString(16).padStart(4, '0')} />
+                <ResultListDisplay title="Machine Code" items={machineCode} isLoading={isMachineCodeLoading} loadingMessage="Generating MC..." emptyMessage="Generate MC to see Machine Code." gradientFrom="from-muted/60 dark:from-muted/30" gradientTo="to-primary/20 dark:to-primary/10" borderColor="border-primary/50 dark:border-primary/30" indexFormatter={(index) => index.toString(16).padStart(4, '0')} />
             </TabsContent>
 
             { !isLoading && !isMachineCodeLoading && !isIntermediateCodeLoading && !isSyntaxLoading && !isSemanticsLoading && !hasLexerContent && !hasMachineCodeContent && !hasIntermediateCodeContent && !hasSyntaxContent && !hasSemanticsContent && (
@@ -226,3 +231,4 @@ export function AnalysisResults({
     </Card>
   );
 }
+

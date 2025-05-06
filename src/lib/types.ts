@@ -1,4 +1,5 @@
 
+
 // Define the structure for a token identified by the lexer
 export interface Token {
   token: string; // The actual lexeme (e.g., "if", "myVariable", "+")
@@ -71,6 +72,7 @@ export interface TacInstruction {
 
 // For Syntax Analysis (Parser)
 export interface SyntaxAnalysisResult {
+  parseTree?: string[];         // Textual representation of Parse Tree (CST)
   astRepresentation?: string[]; // Textual representation of AST
   syntaxErrors?: string[];      // List of syntax errors
   parseStatus: string;          // e.g., "Parsed successfully", "Errors found"
@@ -82,3 +84,4 @@ export interface SemanticAnalysisResult {
   warnings?: string[];         // List of warnings (unused variables, etc.)
   analysisSummary: string;     // e.g., "No semantic errors", "Type checking failed"
 }
+

@@ -6,7 +6,16 @@ export default {
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
+    ],
+     // Add pastel colors to safelist
+     safelist: [
+      'bg-[#FFD1DC]', // Pastel Pink
+      'bg-[#AEC6CF]', // Pastel Blue
+      'bg-[#B0EACD]', // Pastel Green
+      'bg-[#FFFFB3]', // Pastel Yellow
+      'bg-[#FFB347]', // Pastel Orange
+      'text-gray-800', // Ensure dark text color is available
+    ],
   theme: {
   	extend: {
       fontFamily: {
@@ -95,4 +104,3 @@ export default {
   },
   plugins: [require("tailwindcss-animate")],
 } satisfies Config;
-

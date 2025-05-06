@@ -12,7 +12,7 @@ import { analyzeSyntax, type AnalyzeSyntaxOutput } from '@/ai/flows/analyze-synt
 import { analyzeSemantics, type AnalyzeSemanticsOutput } from '@/ai/flows/analyze-semantics-flow';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Trash2, FileCode, Cpu, ScanSearch, Network, Shuffle, Loader2 } from 'lucide-react'; // Added Network, Shuffle, Loader2
+import { Play, Trash2, FileCode, Cpu, ScanSearch, Network, Shuffle, Loader2, Wand2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
 import { sampleCode } from '@/lib/sample-code';
@@ -35,6 +35,8 @@ export function Analyzer() {
   const [isIntermediateCodeLoading, setIsIntermediateCodeLoading] = useState<boolean>(false);
   const [isSyntaxLoading, setIsSyntaxLoading] = useState<boolean>(false);
   const [isSemanticsLoading, setIsSemanticsLoading] = useState<boolean>(false);
+  const [isAllLoading, setIsAllLoading] = useState<boolean>(false);
+
 
   const { toast } = useToast();
 
@@ -50,28 +52,18 @@ export function Analyzer() {
      setIntermediateCode(null);
      setSyntaxAnalysis(null);
      setSemanticAnalysis(null);
-  }, [language]); // Removed reset of code here, handled by handleLanguageChange
+  }, []); // Load sample code once on initial mount based on default language
 
-  const handleAnalyzeLexical = useCallback(async () => {
+  const handleAnalyzeLexical = useCallback(async (showToasts = true): Promise<boolean> => {
     if (!code.trim()) {
-       toast({
-         title: "Input Required",
-         description: "Please enter some code to analyze.",
-         variant: "destructive",
-       });
-      return;
+       if (showToasts) toast({ title: "Input Required", description: "Please enter some code to analyze.", variant: "destructive" });
+      return false;
     }
     setIsLexicalLoading(true);
     setTokens([]);
     setSymbolTable([]);
     setLexemeStats([]);
     setTac([]);
-    // Keep AI results unless explicitly cleared or re-run
-    // setSyntaxAnalysis(null);
-    // setSemanticAnalysis(null);
-    // setIntermediateCode(null);
-    // setMachineCode([]);
-
 
     try {
        await new Promise(resolve => setTimeout(resolve, 300)); // Simulate short delay
@@ -80,109 +72,163 @@ export function Analyzer() {
       setSymbolTable(symbolTable);
       setLexemeStats(lexemeStats);
       setTac(tac);
-      toast({
-        title: "Lexical Analysis Complete",
-        description: `Found ${tokens.length} tokens. Check results below.`,
-      });
+      if (showToasts) toast({ title: "Lexical Analysis Complete", description: `Found ${tokens.length} tokens.` });
+      return true;
     } catch (error) {
       console.error("Lexical analysis error:", error);
-       toast({
-         title: "Lexical Analysis Failed",
-         description: `An unexpected error occurred. ${error instanceof Error ? error.message : 'Check console.'}`,
-         variant: "destructive",
-       });
+       if (showToasts) toast({ title: "Lexical Analysis Failed", description: `${error instanceof Error ? error.message : 'Check console.'}`, variant: "destructive" });
         setTokens([]);
         setSymbolTable([]);
         setLexemeStats([]);
         setTac([]);
+      return false;
     } finally {
       setIsLexicalLoading(false);
     }
   }, [code, language, toast]);
 
-  const handleGenerateMachineCode = useCallback(async () => {
+  const handleGenerateMachineCode = useCallback(async (showToasts = true): Promise<boolean> => {
       if (!code.trim()) {
-         toast({ title: "Input Required", description: "Please enter code.", variant: "destructive" });
-        return;
+         if (showToasts) toast({ title: "Input Required", description: "Please enter code.", variant: "destructive" });
+        return false;
       }
       setIsMachineCodeLoading(true);
       setMachineCode([]);
       try {
         const result = await generateMachineCode({ code, language });
         setMachineCode(result.machineCode);
-        toast({ title: "Machine Code Generated", description: `Successfully generated instructions.` });
+        if (showToasts) toast({ title: "Machine Code Generated", description: `Successfully generated instructions.` });
+        return true;
       } catch (error) {
         console.error("Machine code generation error:", error);
-         toast({ title: "MC Generation Failed", description: `${error instanceof Error ? error.message : 'Check console.'}`, variant: "destructive" });
+         if (showToasts) toast({ title: "MC Generation Failed", description: `${error instanceof Error ? error.message : 'Check console.'}`, variant: "destructive" });
          setMachineCode([]);
+         return false;
       } finally {
         setIsMachineCodeLoading(false);
       }
     }, [code, language, toast]);
 
-   const handleGenerateIntermediateCode = useCallback(async () => {
+   const handleGenerateIntermediateCode = useCallback(async (showToasts = true): Promise<boolean> => {
        if (!code.trim()) {
-          toast({ title: "Input Required", description: "Please enter code.", variant: "destructive" });
-         return;
+          if (showToasts) toast({ title: "Input Required", description: "Please enter code.", variant: "destructive" });
+         return false;
        }
        setIsIntermediateCodeLoading(true);
        setIntermediateCode(null);
        try {
          const result = await generateIntermediateCode({ code, language });
          setIntermediateCode(result);
-         toast({ title: "Intermediate Code Generated (AI)", description: `Successfully generated IC representations.` });
+         if (showToasts) toast({ title: "Intermediate Code Generated (AI)", description: `Successfully generated IC representations.` });
+         return true;
        } catch (error) {
          console.error("Intermediate code generation error:", error);
-          toast({ title: "IC Generation Failed (AI)", description: `${error instanceof Error ? error.message : 'Check console.'}`, variant: "destructive" });
+          if (showToasts) toast({ title: "IC Generation Failed (AI)", description: `${error instanceof Error ? error.message : 'Check console.'}`, variant: "destructive" });
           setIntermediateCode(null);
+          return false;
        } finally {
          setIsIntermediateCodeLoading(false);
        }
      }, [code, language, toast]);
 
-  const handleAnalyzeSyntax = useCallback(async () => {
+  const handleAnalyzeSyntax = useCallback(async (showToasts = true): Promise<boolean> => {
     if (!code.trim()) {
-      toast({ title: "Input Required", description: "Please enter code for syntax analysis.", variant: "destructive" });
-      return;
+      if (showToasts) toast({ title: "Input Required", description: "Please enter code for syntax analysis.", variant: "destructive" });
+      return false;
     }
     setIsSyntaxLoading(true);
     setSyntaxAnalysis(null);
     try {
       const result = await analyzeSyntax({ code, language });
       setSyntaxAnalysis(result);
-      toast({ title: "Syntax Analysis Complete", description: result.parseStatus });
+      if (showToasts) toast({ title: "Syntax Analysis Complete", description: result.parseStatus });
+      return true;
     } catch (error) {
       console.error("Syntax analysis error:", error);
-      toast({ title: "Syntax Analysis Failed", description: `${error instanceof Error ? error.message : 'Check console.'}`, variant: "destructive" });
+      if (showToasts) toast({ title: "Syntax Analysis Failed", description: `${error instanceof Error ? error.message : 'Check console.'}`, variant: "destructive" });
       setSyntaxAnalysis(null);
+      return false;
     } finally {
       setIsSyntaxLoading(false);
     }
   }, [code, language, toast]);
 
-  const handleAnalyzeSemantics = useCallback(async () => {
+  const handleAnalyzeSemantics = useCallback(async (showToasts = true): Promise<boolean> => {
     if (!code.trim()) {
-      toast({ title: "Input Required", description: "Please enter code for semantic analysis.", variant: "destructive" });
-      return;
+      if (showToasts) toast({ title: "Input Required", description: "Please enter code for semantic analysis.", variant: "destructive" });
+      return false;
     }
     setIsSemanticsLoading(true);
     setSemanticAnalysis(null);
     try {
       const result = await analyzeSemantics({ code, language });
       setSemanticAnalysis(result);
-      toast({ title: "Semantic Analysis Complete", description: result.analysisSummary });
+      if (showToasts) toast({ title: "Semantic Analysis Complete", description: result.analysisSummary });
+      return true;
     } catch (error) {
       console.error("Semantic analysis error:", error);
-      toast({ title: "Semantic Analysis Failed", description: `${error instanceof Error ? error.message : 'Check console.'}`, variant: "destructive" });
+      if (showToasts) toast({ title: "Semantic Analysis Failed", description: `${error instanceof Error ? error.message : 'Check console.'}`, variant: "destructive" });
       setSemanticAnalysis(null);
+      return false;
     } finally {
       setIsSemanticsLoading(false);
     }
   }, [code, language, toast]);
 
+  const handleAnalyzeAll = useCallback(async () => {
+    if (!code.trim()) {
+      toast({ title: "Input Required", description: "Please enter code to analyze.", variant: "destructive" });
+      return;
+    }
+    setIsAllLoading(true);
+    toast({ title: "Full Analysis Started", description: "Processing all phases..." });
+
+    let success = await handleAnalyzeLexical(false);
+    if (!success) {
+      toast({ title: "Full Analysis Halted", description: "Lexical analysis failed.", variant: "destructive" });
+      setIsAllLoading(false);
+      return;
+    }
+    toast({ title: "Lexical Analysis Complete", description: "Proceeding to Syntax Analysis." });
+
+    success = await handleAnalyzeSyntax(false);
+    if (!success) {
+      toast({ title: "Full Analysis Halted", description: "Syntax analysis failed.", variant: "destructive" });
+      setIsAllLoading(false);
+      return;
+    }
+    toast({ title: "Syntax Analysis Complete", description: "Proceeding to Semantic Analysis." });
+
+    success = await handleAnalyzeSemantics(false);
+    if (!success) {
+      toast({ title: "Full Analysis Halted", description: "Semantic analysis failed.", variant: "destructive" });
+      setIsAllLoading(false);
+      return;
+    }
+    toast({ title: "Semantic Analysis Complete", description: "Proceeding to Intermediate Code Generation." });
+
+    success = await handleGenerateIntermediateCode(false);
+    if (!success) {
+      toast({ title: "Full Analysis Halted", description: "Intermediate Code generation failed.", variant: "destructive" });
+      setIsAllLoading(false);
+      return;
+    }
+    toast({ title: "Intermediate Code Generation Complete", description: "Proceeding to Machine Code Generation." });
+    
+    success = await handleGenerateMachineCode(false);
+    if (!success) {
+      toast({ title: "Full Analysis Halted", description: "Machine Code generation failed.", variant: "destructive" });
+      setIsAllLoading(false);
+      return;
+    }
+    
+    toast({ title: "Full Analysis Complete!", description: "All phases processed successfully." });
+    setIsAllLoading(false);
+  }, [code, language, toast, handleAnalyzeLexical, handleAnalyzeSyntax, handleAnalyzeSemantics, handleGenerateIntermediateCode, handleGenerateMachineCode]);
+
 
   const handleReset = useCallback(() => {
-    setCode(sampleCode[language]); // Reset to current language's sample code
+    setCode(sampleCode[language]); 
     setTokens([]);
     setSymbolTable([]);
     setLexemeStats([]);
@@ -192,11 +238,10 @@ export function Analyzer() {
     setSyntaxAnalysis(null);
     setSemanticAnalysis(null);
     toast({ title: "Reset Complete", description: "Editor and results cleared. Sample code loaded." });
-  }, [language, toast]); // Add language to dependency array
+  }, [language, toast]);
 
   const handleUseSample = useCallback(() => {
     setCode(sampleCode[language]);
-    // Optionally clear results when loading sample, or keep them
     setTokens([]);
     setSymbolTable([]);
     setLexemeStats([]);
@@ -211,8 +256,7 @@ export function Analyzer() {
   const handleLanguageChange = (value: string) => {
     const newLang = value as 'java' | 'cpp';
     setLanguage(newLang);
-    setCode(sampleCode[newLang]); // Load new sample code
-    // Clear all results
+    setCode(sampleCode[newLang]); 
     setTokens([]);
     setSymbolTable([]);
     setLexemeStats([]);
@@ -224,7 +268,8 @@ export function Analyzer() {
      toast({ title: "Language Changed", description: `Switched to ${newLang.toUpperCase()}. Sample code loaded and results cleared.` });
   };
 
-  const anyLoading = isLexicalLoading || isMachineCodeLoading || isIntermediateCodeLoading || isSyntaxLoading || isSemanticsLoading;
+  const anyIndividualLoading = isLexicalLoading || isMachineCodeLoading || isIntermediateCodeLoading || isSyntaxLoading || isSemanticsLoading;
+  const anyLoading = anyIndividualLoading || isAllLoading;
 
   if (!isClient) {
     return (
@@ -235,7 +280,7 @@ export function Analyzer() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-theme(spacing.24)-2rem)]"> {/* Adjusted height */}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-theme(spacing.24)-2rem)]">
       <Card className="flex flex-col h-full border-primary shadow-lg bg-gradient-to-br from-background to-secondary/20 rounded-xl">
         <CardContent className="p-4 flex flex-col flex-grow">
           <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
@@ -255,19 +300,26 @@ export function Analyzer() {
             </div>
 
             <div className="flex gap-2 flex-wrap justify-end">
-               <Button onClick={handleAnalyzeLexical} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-pink-500 to-rose-500 text-white hover:from-pink-600 hover:to-rose-600 shadow-md">
+               <Button 
+                  onClick={handleAnalyzeAll} 
+                  disabled={anyLoading || !code.trim()} 
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-md"
+                >
+                 <Wand2 className="mr-1 h-4 w-4" /> {isAllLoading ? 'Analyzing All...' : 'Analyze All'}
+               </Button>
+               <Button onClick={() => handleAnalyzeLexical()} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-pink-500 to-rose-500 text-white hover:from-pink-600 hover:to-rose-600 shadow-md">
                  <Play className="mr-1 h-4 w-4" /> {isLexicalLoading ? 'Lexing...' : 'Lexical'}
                </Button>
-               <Button onClick={handleAnalyzeSyntax} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 shadow-md">
+               <Button onClick={() => handleAnalyzeSyntax()} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 shadow-md">
                   <Network className="mr-1 h-4 w-4" /> {isSyntaxLoading ? 'Parsing...' : 'Syntax'}
                </Button>
-               <Button onClick={handleAnalyzeSemantics} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 shadow-md">
+               <Button onClick={() => handleAnalyzeSemantics()} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 shadow-md">
                   <ScanSearch className="mr-1 h-4 w-4" /> {isSemanticsLoading ? 'Checking...' : 'Semantic'}
                </Button>
-               <Button onClick={handleGenerateIntermediateCode} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 shadow-md">
+               <Button onClick={() => handleGenerateIntermediateCode()} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 shadow-md">
                   <Shuffle className="mr-1 h-4 w-4" /> {isIntermediateCodeLoading ? 'Gen IC...' : 'Gen IC'}
                </Button>
-               <Button onClick={handleGenerateMachineCode} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-lime-500 to-green-500 text-white hover:from-lime-600 hover:to-green-600 shadow-md">
+               <Button onClick={() => handleGenerateMachineCode()} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-lime-500 to-green-500 text-white hover:from-lime-600 hover:to-green-600 shadow-md">
                   <Cpu className="mr-1 h-4 w-4" /> {isMachineCodeLoading ? 'Gen MC...' : 'Gen MC'}
                </Button>
                <Button onClick={handleReset} variant="outline" size="icon" disabled={anyLoading} className="border-destructive text-destructive hover:bg-destructive/10 shadow-sm">
@@ -276,7 +328,7 @@ export function Analyzer() {
                </Button>
             </div>
           </div>
-           <div className="flex-grow min-h-[30vh] md:min-h-[40vh] lg:min-h-0 border border-accent/50 rounded-md overflow-hidden shadow-inner"> {/* Adjusted min-height */}
+           <div className="flex-grow min-h-[30vh] md:min-h-[40vh] lg:min-h-0 border border-accent/50 rounded-md overflow-hidden shadow-inner">
              <CodeEditor
               language={language}
               value={code}
@@ -290,17 +342,18 @@ export function Analyzer() {
         tokens={tokens}
         symbolTable={symbolTable}
         lexemeStats={lexemeStats}
-        tac={tac} // From lexer
-        machineCode={machineCode} // From AI
-        intermediateCode={intermediateCode} // From AI
-        syntaxAnalysis={syntaxAnalysis} // From AI
-        semanticAnalysis={semanticAnalysis} // From AI
-        isLoading={isLexicalLoading} // For Lexical Analysis parts
-        isMachineCodeLoading={isMachineCodeLoading}
-        isIntermediateCodeLoading={isIntermediateCodeLoading}
-        isSyntaxLoading={isSyntaxLoading}
-        isSemanticsLoading={isSemanticsLoading}
+        tac={tac} 
+        machineCode={machineCode} 
+        intermediateCode={intermediateCode} 
+        syntaxAnalysis={syntaxAnalysis} 
+        semanticAnalysis={semanticAnalysis} 
+        isLoading={isLexicalLoading || isAllLoading} 
+        isMachineCodeLoading={isMachineCodeLoading || isAllLoading}
+        isIntermediateCodeLoading={isIntermediateCodeLoading || isAllLoading}
+        isSyntaxLoading={isSyntaxLoading || isAllLoading}
+        isSemanticsLoading={isSemanticsLoading || isAllLoading}
       />
     </div>
   );
 }
+

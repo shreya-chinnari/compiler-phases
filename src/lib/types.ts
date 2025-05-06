@@ -1,3 +1,4 @@
+
 // Define the structure for a token identified by the lexer
 export interface Token {
   token: string; // The actual lexeme (e.g., "if", "myVariable", "+")
@@ -63,4 +64,21 @@ export interface TacInstruction {
     arg1: string | null;     // First argument/operand (variable, constant, temporary, label)
     arg2: string | null;     // Second argument/operand
     result: string | null;   // Result (variable, temporary, label)
+}
+
+
+// --- Types for AI-driven analysis phases ---
+
+// For Syntax Analysis (Parser)
+export interface SyntaxAnalysisResult {
+  astRepresentation?: string[]; // Textual representation of AST
+  syntaxErrors?: string[];      // List of syntax errors
+  parseStatus: string;          // e.g., "Parsed successfully", "Errors found"
+}
+
+// For Semantic Analysis
+export interface SemanticAnalysisResult {
+  semanticErrors?: string[]; // List of semantic errors (type mismatch, scope issues)
+  warnings?: string[];         // List of warnings (unused variables, etc.)
+  analysisSummary: string;     // e.g., "No semantic errors", "Type checking failed"
 }

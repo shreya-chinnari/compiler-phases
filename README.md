@@ -1,6 +1,6 @@
 # Code Insights Analyzer
 
-A Next.js application designed to analyze Java and C++ source code, providing insights into lexical structure, intermediate code representations, and simplified machine code generation using AI.
+A Next.js application designed to analyze Java and C++ source code, providing insights into lexical structure, syntax, semantics, intermediate code representations, and simplified machine code generation using AI.
 
 ## Key Features
 
@@ -12,6 +12,14 @@ A Next.js application designed to analyze Java and C++ source code, providing in
     *   **Symbol Table:** Builds and displays a symbol table containing identifiers, their inferred types (basic), scope, and line numbers.
     *   **Lexeme Statistics:** Shows the count and frequency of different token types found in the code.
     *   **Three-Address Code (TAC):** Generates basic Three-Address Code instructions for simple assignments and arithmetic operations.
+*   **AI-Powered Syntax Analysis:**
+    *   Leverages Google's Gemini model via Genkit.
+    *   Generates a textual representation of the Abstract Syntax Tree (AST).
+    *   Identifies and lists syntax errors with line numbers and descriptions.
+*   **AI-Powered Semantic Analysis:**
+    *   Utilizes Google's Gemini model via Genkit.
+    *   Identifies semantic errors (e.g., type mismatches, undeclared variables, scope issues).
+    *   Provides semantic warnings (e.g., unused variables).
 *   **AI-Powered Intermediate Code Generation:**
     *   Leverages Google's Gemini model via Genkit.
     *   Generates three common Intermediate Code (IC) representations:
@@ -21,7 +29,7 @@ A Next.js application designed to analyze Java and C++ source code, providing in
 *   **AI-Powered Machine Code Generation:**
     *   Utilizes Google's Gemini model via Genkit.
     *   Generates simplified, human-readable assembly-like machine code instructions (e.g., `LOAD`, `STORE`, `ADD`, `JMP`).
-*   **Tabbed Results View:** Presents all analysis outputs (Tokens, Symbol Table, Stats, TAC, IC, Machine Code) in a clear, organized, and scrollable tabbed interface.
+*   **Tabbed Results View:** Presents all analysis outputs (Tokens, Symbol Table, Stats, TAC, AST, Syntax Errors, Semantic Errors, IC, Machine Code) in a clear, organized, and scrollable tabbed interface.
 *   **Modern UI:**
     *   Built with Next.js App Router and React Server Components.
     *   Styled using ShadCN UI components and Tailwind CSS.
@@ -47,7 +55,7 @@ A Next.js application designed to analyze Java and C++ source code, providing in
 
 *   Node.js (v18 or later recommended)
 *   npm or yarn
-*   Google AI API Key (for Intermediate and Machine Code Generation)
+*   Google AI API Key (for AI-powered analysis features)
 
 ### Setup
 
@@ -91,9 +99,11 @@ A Next.js application designed to analyze Java and C++ source code, providing in
 1.  Open the application in your browser (usually `http://localhost:9002`).
 2.  Select the desired programming language (Java or C++) from the dropdown.
 3.  Enter your code into the editor or click the "Sample" button to load example code.
-4.  Click the **"Analyze"** button to perform lexical analysis (Tokens, Symbol Table, Stats, TAC).
-5.  Click the **"Generate IC"** button to use the AI model to generate Intermediate Code (Quadruples, Triples, Indirect Triples). This requires a valid `GOOGLE_GENAI_API_KEY`.
-6.  Click the **"Generate MC"** button to use the AI model to generate simplified Machine Code. This also requires a valid `GOOGLE_GENAI_API_KEY`.
-7.  View the results in the corresponding tabs in the right-hand panel.
-8.  Use the **Reset** button (trash icon) to clear the editor and results.
-9.  Toggle between Light and Dark modes using the theme switcher in the header.
+4.  Click the **"Lexical"** button to perform lexical analysis (Tokens, Symbol Table, Stats, TAC).
+5.  Click the **"Syntax"** button to perform AI-powered syntax analysis (AST, Syntax Errors).
+6.  Click the **"Semantic"** button to perform AI-powered semantic analysis (Semantic Errors, Warnings).
+7.  Click the **"Generate IC"** button to use the AI model to generate Intermediate Code (Quadruples, Triples, Indirect Triples). This requires a valid `GOOGLE_GENAI_API_KEY`.
+8.  Click the **"Generate MC"** button to use the AI model to generate simplified Machine Code. This also requires a valid `GOOGLE_GENAI_API_KEY`.
+9.  View the results in the corresponding tabs in the right-hand panel.
+10. Use the **Reset** button (trash icon) to clear the editor and results.
+11. Toggle between Light and Dark modes using the theme switcher in the header.

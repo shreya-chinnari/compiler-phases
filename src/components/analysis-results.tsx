@@ -7,10 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { Token, SymbolTableEntry, LexemeStat } from '@/lib/types';
-import type { GenerateIntermediateCodeOutput } from '@/ai/flows/generate-intermediate-code-flow'; // Import IC types
+import type { GenerateIntermediateCodeOutput } from '@/ai/flows/generate-intermediate-code-flow';
+import type { AnalyzeSyntaxOutput } from '@/ai/flows/analyze-syntax-flow';
+import type { AnalyzeSemanticsOutput } from '@/ai/flows/analyze-semantics-flow';
 import { Skeleton } from "@/components/ui/skeleton";
-import { List, TableProperties, BarChart3, TerminalSquare, Cpu, Braces, Binary } from 'lucide-react'; // Added Braces, Binary
-import { cn } from '@/lib/utils'; // Import cn utility
+import { List, TableProperties, BarChart3, TerminalSquare, Cpu, Braces, Binary, FileJson2, ScanSearch, AlertTriangle } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface AnalysisResultsProps {
   tokens: Token[];
@@ -18,78 +20,47 @@ interface AnalysisResultsProps {
   lexemeStats: LexemeStat[];
   tac: string[];
   machineCode: string[];
-  intermediateCode: GenerateIntermediateCodeOutput | null; // Add IC prop
+  intermediateCode: GenerateIntermediateCodeOutput | null;
+  syntaxAnalysis: AnalyzeSyntaxOutput | null;
+  semanticAnalysis: AnalyzeSemanticsOutput | null;
   isLoading: boolean;
   isMachineCodeLoading: boolean;
-  isIntermediateCodeLoading: boolean; // Add IC loading state
+  isIntermediateCodeLoading: boolean;
+  isSyntaxLoading: boolean;
+  isSemanticsLoading: boolean;
 }
 
-// Updated TokenTypeBadge component using Tailwind JIT classes
 const TokenTypeBadge: React.FC<{ type: string }> = ({ type }) => {
-  let bgColor = 'bg-gray-200'; // Default background
-  let textColor = 'text-gray-800'; // Default text color
+  let bgColor = 'bg-gray-200';
+  let textColor = 'text-gray-800';
 
-  switch (type) {
+  switch (type.toUpperCase()) {
     case 'KEYWORD':
-      bgColor = 'bg-[#AEC6CF]'; // Pastel Blue
-      textColor = 'text-[#263238]'; // Darker Blue-Gray text
-      break;
+      bgColor = 'bg-[#AEC6CF]'; textColor = 'text-[#263238]'; break;
     case 'IDENTIFIER':
-      bgColor = 'bg-[#B0EACD]'; // Pastel Green
-      textColor = 'text-[#1B5E20]'; // Darker Green text
-      break;
+      bgColor = 'bg-[#B0EACD]'; textColor = 'text-[#1B5E20]'; break;
     case 'LITERAL_STRING':
-      bgColor = 'bg-[#FFD1DC]'; // Pastel Pink
-      textColor = 'text-[#880E4F]'; // Darker Pink/Magenta text
-      break;
-    case 'LITERAL_NUMBER':
-    case 'LITERAL_BOOLEAN':
-    case 'LITERAL_CHAR':
-      bgColor = 'bg-[#FFFFB3]'; // Pastel Yellow
-      textColor = 'text-[#827717]'; // Darker Yellow/Brown text
-      break;
+      bgColor = 'bg-[#FFD1DC]'; textColor = 'text-[#880E4F]'; break;
+    case 'LITERAL_NUMBER': case 'LITERAL_BOOLEAN': case 'LITERAL_CHAR':
+      bgColor = 'bg-[#FFFFB3]'; textColor = 'text-[#827717]'; break;
     case 'OPERATOR':
-      bgColor = 'bg-[#FFB347]'; // Pastel Orange
-      textColor = 'text-[#E65100]'; // Darker Orange text
-      break;
+      bgColor = 'bg-[#FFB347]'; textColor = 'text-[#E65100]'; break;
     case 'PUNCTUATION':
-      bgColor = 'bg-[#B0EACD]'; // Pastel Green (reusing)
-      textColor = 'text-[#1B5E20]'; // Darker Green text
-      break;
+      bgColor = 'bg-[#D1C4E9]'; textColor = 'text-[#311B92]'; break; // Pastel Purple
     case 'ERROR':
-      bgColor = 'bg-destructive'; // Use theme's destructive color
-      textColor = 'text-destructive-foreground';
-      break;
-    default:
-      // Keep default colors for unknown types
-      break;
+      bgColor = 'bg-destructive'; textColor = 'text-destructive-foreground'; break;
+    default: break;
   }
 
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none",
-        bgColor,
-        textColor,
-        "border-transparent" // Ensure border is transparent unless needed
-      )}
-    >
+    <span className={cn("inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none border-transparent", bgColor, textColor)}>
       {type}
     </span>
   );
 };
 
-// Component to render list-based results (like TAC, MC, IC)
-const ResultListDisplay: React.FC<{ title: string; items: string[]; isLoading: boolean; loadingMessage: string; emptyMessage: string; gradientFrom: string; gradientTo: string; borderColor: string; indexFormatter?: (index: number) => string }> = ({
-    title,
-    items,
-    isLoading,
-    loadingMessage,
-    emptyMessage,
-    gradientFrom,
-    gradientTo,
-    borderColor,
-    indexFormatter = (index) => (index + 1).toString() // Default index formatter
+const ResultListDisplay: React.FC<{ title: string; items: string[] | undefined; isLoading: boolean; loadingMessage: string; emptyMessage: string; gradientFrom: string; gradientTo: string; borderColor: string; indexFormatter?: (index: number) => string; itemClassName?: string; }> = ({
+    title, items = [], isLoading, loadingMessage, emptyMessage, gradientFrom, gradientTo, borderColor, indexFormatter = (index) => (index + 1).toString(), itemClassName
 }) => {
     if (isLoading) {
         return (
@@ -104,11 +75,10 @@ const ResultListDisplay: React.FC<{ title: string; items: string[]; isLoading: b
     }
     return (
         <div className="mt-0">
-            {/* <h3 className="text-sm font-medium text-muted-foreground mb-2">{title}</h3> */}
              <pre className={cn("p-4 rounded border text-sm font-mono overflow-x-auto text-foreground/90 shadow-inner", `bg-gradient-to-br ${gradientFrom} ${gradientTo}`, borderColor)}>
-                {items.map((instruction, index) => (
-                    <div key={index} className={cn("py-0.5 whitespace-pre-wrap", index % 2 === 0 ? "bg-transparent" : "bg-black/5 dark:bg-white/5 rounded")}>
-                        <span className='text-primary/80 dark:text-primary/60 mr-2 font-semibold'>{indexFormatter(index)}:</span> {instruction}
+                {items.map((item, index) => (
+                    <div key={index} className={cn("py-0.5 whitespace-pre-wrap", index % 2 === 0 ? "bg-transparent" : "bg-black/5 dark:bg-white/5 rounded", itemClassName)}>
+                        {indexFormatter(index) && <span className='text-primary/80 dark:text-primary/60 mr-2 font-semibold'>{indexFormatter(index)}:</span>} {item}
                     </div>
                 ))}
             </pre>
@@ -118,104 +88,58 @@ const ResultListDisplay: React.FC<{ title: string; items: string[]; isLoading: b
 
 
 export function AnalysisResults({
-  tokens,
-  symbolTable,
-  lexemeStats,
-  tac,
-  machineCode,
-  intermediateCode, // Add intermediateCode prop
-  isLoading,
-  isMachineCodeLoading,
-  isIntermediateCodeLoading // Add isIntermediateCodeLoading prop
+  tokens, symbolTable, lexemeStats, tac, machineCode, intermediateCode, syntaxAnalysis, semanticAnalysis,
+  isLoading, isMachineCodeLoading, isIntermediateCodeLoading, isSyntaxLoading, isSemanticsLoading
 }: AnalysisResultsProps) {
 
-  // Ensure no whitespace nodes are rendered within TableRow
   const renderSkeletonTable = (cols: number, rows: number = 5) => (
     <Table>
-      <TableHeader>
-        <TableRow>
-          {[...Array(cols)].map((_, i) => (
-            <TableHead key={i}>
-              <Skeleton className="h-4 w-20" />
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {[...Array(rows)].map((_, i) => (
-          <TableRow key={i}>
-            {[...Array(cols)].map((_, j) => (
-              <TableCell key={j}>
-                <Skeleton className="h-4 w-full" />
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
+      <TableHeader><TableRow>{[...Array(cols)].map((_, i) => <TableHead key={i}><Skeleton className="h-4 w-20" /></TableHead>)}</TableRow></TableHeader>
+      <TableBody>{[...Array(rows)].map((_, i) => <TableRow key={i}>{[...Array(cols)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}</TableRow>)}</TableBody>
     </Table>
   );
 
-
   const renderSkeletonList = (rows: number = 10) => (
-    <div className="space-y-2 p-4">
-       {[...Array(rows)].map((_, i) => <Skeleton key={i} className="h-4 w-full" />)}
-    </div>
+    <div className="space-y-2 p-4">{[...Array(rows)].map((_, i) => <Skeleton key={i} className="h-4 w-full" />)}</div>
    );
-
 
   const hasLexerContent = tokens.length > 0 || symbolTable.length > 0 || lexemeStats.length > 0 || tac.length > 0;
   const hasMachineCodeContent = machineCode.length > 0;
-  const hasIntermediateCodeContent = intermediateCode !== null && (
-    intermediateCode.quadruples.length > 0 ||
-    intermediateCode.triples.length > 0 ||
-    intermediateCode.indirectTriples.instructions.length > 0
-  );
+  const hasIntermediateCodeContent = intermediateCode !== null && (intermediateCode.quadruples.length > 0 || intermediateCode.triples.length > 0 || intermediateCode.indirectTriples.instructions.length > 0);
+  const hasSyntaxContent = syntaxAnalysis !== null && ( (syntaxAnalysis.astRepresentation && syntaxAnalysis.astRepresentation.length > 0) || (syntaxAnalysis.syntaxErrors && syntaxAnalysis.syntaxErrors.length > 0));
+  const hasSemanticsContent = semanticAnalysis !== null && ( (semanticAnalysis.semanticErrors && semanticAnalysis.semanticErrors.length > 0) || (semanticAnalysis.warnings && semanticAnalysis.warnings.length > 0) );
+
 
   return (
-    <Card className="h-full flex flex-col border-accent shadow-lg"> {/* Added border and shadow */}
-      <CardHeader className="pb-2 pt-4 px-4 bg-gradient-to-r from-primary/10 to-accent/10 rounded-t-lg"> {/* Subtle gradient header */}
-        <CardTitle className="text-lg font-semibold text-primary">Analysis Output</CardTitle> {/* Primary color title */}
+    <Card className="h-full flex flex-col border-accent shadow-lg">
+      <CardHeader className="pb-2 pt-4 px-4 bg-gradient-to-r from-primary/10 to-accent/10 rounded-t-lg">
+        <CardTitle className="text-lg font-semibold text-primary">Analysis Output</CardTitle>
       </CardHeader>
-      <CardContent className="flex-grow p-0 overflow-hidden bg-card"> {/* Ensure card bg */}
+      <CardContent className="flex-grow p-0 overflow-hidden bg-card">
         <Tabs defaultValue="tokens" className="h-full flex flex-col">
-           {/* Use flex layout with horizontal scrolling for tabs */}
            <div className="mx-4 mt-4 mb-2 shrink-0 overflow-x-auto">
              <TabsList className="tabs-list-colorful inline-flex w-auto min-w-full justify-start">
                <TabsTrigger value="tokens" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><List className='h-4 w-4'/> Tokens</TabsTrigger>
-               <TabsTrigger value="symbolTable" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><TableProperties className='h-4 w-4'/> Symbol Table</TabsTrigger>
-               <TabsTrigger value="stats" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><BarChart3 className='h-4 w-4'/> Lexeme Stats</TabsTrigger>
+               <TabsTrigger value="symbolTable" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><TableProperties className='h-4 w-4'/> Symbols</TabsTrigger>
+               <TabsTrigger value="stats" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><BarChart3 className='h-4 w-4'/> Stats</TabsTrigger>
                <TabsTrigger value="tac" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><TerminalSquare className='h-4 w-4'/> TAC</TabsTrigger>
-               <TabsTrigger value="quadruples" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><Braces className='h-4 w-4'/> Quads</TabsTrigger> {/* IC Quadruples */}
-               <TabsTrigger value="triples" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><Binary className='h-4 w-4'/> Triples</TabsTrigger> {/* IC Triples */}
-               <TabsTrigger value="indirectTriples" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><Binary className='h-4 w-4'/> Indirect</TabsTrigger> {/* IC Indirect Triples */}
-               <TabsTrigger value="machineCode" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><Cpu className='h-4 w-4'/> Machine Code</TabsTrigger>
+               <TabsTrigger value="ast" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><FileJson2 className='h-4 w-4'/> AST</TabsTrigger>
+               <TabsTrigger value="syntaxErrors" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><AlertTriangle className='h-4 w-4'/> Syntax Err</TabsTrigger>
+               <TabsTrigger value="semanticErrors" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><ScanSearch className='h-4 w-4'/> Semantic Err</TabsTrigger>
+               <TabsTrigger value="quadruples" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><Braces className='h-4 w-4'/> Quads</TabsTrigger>
+               <TabsTrigger value="triples" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><Binary className='h-4 w-4'/> Triples</TabsTrigger>
+               <TabsTrigger value="indirectTriples" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><Binary className='h-4 w-4'/> Indirect</TabsTrigger>
+               <TabsTrigger value="machineCode" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><Cpu className='h-4 w-4'/> MC</TabsTrigger>
              </TabsList>
            </div>
 
           <ScrollArea className="flex-grow px-4 pb-4">
-            {/* Lexer Tabs */}
             <TabsContent value="tokens" className="mt-0">
               {isLoading ? renderSkeletonTable(4) : (
                  tokens.length === 0 && !isLoading ? <p className="text-muted-foreground text-center py-8">No tokens found.</p> :
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[80px]">Line</TableHead>
-                      <TableHead className="w-[80px]">Token#</TableHead>
-                      <TableHead>Token (Lexeme)</TableHead>
-                      <TableHead>Token Type</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {tokens.map((token, index) => (
-                      <TableRow key={index} className="hover:bg-secondary/50">
-                        <TableCell>{token.line}</TableCell>
-                        <TableCell>{index + 1}</TableCell>
-                        <TableCell className="font-mono break-all">{token.token}</TableCell>
-                        <TableCell><TokenTypeBadge type={token.type} /></TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
+                  <TableHeader><TableRow><TableHead className="w-[80px]">Line</TableHead><TableHead className="w-[80px]">Token#</TableHead><TableHead>Token (Lexeme)</TableHead><TableHead>Token Type</TableHead></TableRow></TableHeader>
+                  <TableBody>{tokens.map((token, index) => (<TableRow key={index} className="hover:bg-secondary/50"><TableCell>{token.line}</TableCell><TableCell>{index + 1}</TableCell><TableCell className="font-mono break-all">{token.token}</TableCell><TableCell><TokenTypeBadge type={token.type} /></TableCell></TableRow>))}</TableBody>
                 </Table>
               )}
             </TabsContent>
@@ -224,26 +148,8 @@ export function AnalysisResults({
                {isLoading ? renderSkeletonTable(5) : (
                  symbolTable.length === 0 && !isLoading ? <p className="text-muted-foreground text-center py-8">Symbol table is empty.</p> :
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Lexeme</TableHead>
-                      <TableHead>Token Type</TableHead>
-                      <TableHead>Data Type</TableHead>
-                      <TableHead>Scope</TableHead>
-                      <TableHead>Lines Defined/Used</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {symbolTable.map((entry, index) => (
-                      <TableRow key={index} className="hover:bg-secondary/50">
-                        <TableCell className="font-mono break-all">{entry.lexeme}</TableCell>
-                        <TableCell><TokenTypeBadge type={entry.tokenType} /></TableCell>
-                         <TableCell>{entry.dataType || <span className='text-muted-foreground text-xs italic'>unknown</span>}</TableCell>
-                        <TableCell className="text-xs">{entry.scope || 'N/A'}</TableCell>
-                         <TableCell className="text-xs">{entry.lineNumbers.join(', ')}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
+                  <TableHeader><TableRow><TableHead>Lexeme</TableHead><TableHead>Token Type</TableHead><TableHead>Data Type</TableHead><TableHead>Scope</TableHead><TableHead>Lines</TableHead></TableRow></TableHeader>
+                  <TableBody>{symbolTable.map((entry, index) => (<TableRow key={index} className="hover:bg-secondary/50"><TableCell className="font-mono break-all">{entry.lexeme}</TableCell><TableCell><TokenTypeBadge type={entry.tokenType} /></TableCell><TableCell>{entry.dataType || <span className='text-muted-foreground text-xs italic'>unknown</span>}</TableCell><TableCell className="text-xs">{entry.scope || 'N/A'}</TableCell><TableCell className="text-xs">{entry.lineNumbers.join(', ')}</TableCell></TableRow>))}</TableBody>
                 </Table>
                )}
             </TabsContent>
@@ -252,123 +158,66 @@ export function AnalysisResults({
                {isLoading ? renderSkeletonTable(3) : (
                  lexemeStats.length === 0 && !isLoading ? <p className="text-muted-foreground text-center py-8">No statistics available.</p> :
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Lexeme Type</TableHead>
-                      <TableHead>Count</TableHead>
-                       <TableHead>Frequency</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lexemeStats.map((stat, index) => (
-                      <TableRow key={index} className="hover:bg-secondary/50">
-                        <TableCell><TokenTypeBadge type={stat.type} /></TableCell>
-                        <TableCell>{stat.count}</TableCell>
-                         <TableCell>{(stat.frequency * 100).toFixed(2)}%</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
+                  <TableHeader><TableRow><TableHead>Lexeme Type</TableHead><TableHead>Count</TableHead><TableHead>Frequency</TableHead></TableRow></TableHeader>
+                  <TableBody>{lexemeStats.map((stat, index) => (<TableRow key={index} className="hover:bg-secondary/50"><TableCell><TokenTypeBadge type={stat.type} /></TableCell><TableCell>{stat.count}</TableCell><TableCell>{(stat.frequency * 100).toFixed(2)}%</TableCell></TableRow>))}</TableBody>
                 </Table>
                 )}
             </TabsContent>
 
              <TabsContent value="tac" className="mt-0">
-                <ResultListDisplay
-                    title="Three-Address Code"
-                    items={tac}
-                    isLoading={isLoading}
-                    loadingMessage="Analyzing code for TAC..."
-                    emptyMessage="No Three-Address Code generated."
-                    gradientFrom="from-muted/50"
-                    gradientTo="to-secondary/30"
-                    borderColor="border-accent/50"
-                />
+                <ResultListDisplay title="Three-Address Code" items={tac} isLoading={isLoading} loadingMessage="Analyzing for TAC..." emptyMessage="No TAC generated." gradientFrom="from-muted/50" gradientTo="to-secondary/30" borderColor="border-accent/50" />
             </TabsContent>
 
-            {/* Intermediate Code Tabs */}
+            {/* Syntax Analysis Tabs */}
+            <TabsContent value="ast" className="mt-0">
+                <ResultListDisplay title="Abstract Syntax Tree (Simplified)" items={syntaxAnalysis?.astRepresentation} isLoading={isSyntaxLoading} loadingMessage="Generating AST..." emptyMessage="Perform Syntax Analysis to see AST." gradientFrom="from-sky-100" gradientTo="to-indigo-100" borderColor="border-sky-300" indexFormatter={() => ''} itemClassName="text-left" />
+                {syntaxAnalysis && !isSyntaxLoading && <p className="text-xs text-muted-foreground mt-2 px-1">{syntaxAnalysis.parseStatus}</p>}
+            </TabsContent>
+            <TabsContent value="syntaxErrors" className="mt-0">
+                <ResultListDisplay title="Syntax Errors" items={syntaxAnalysis?.syntaxErrors} isLoading={isSyntaxLoading} loadingMessage="Checking for syntax errors..." emptyMessage="No syntax errors reported or analysis not run." gradientFrom="from-red-100" gradientTo="to-pink-100" borderColor="border-red-300" indexFormatter={(idx) => `Err ${idx+1}`} itemClassName="text-destructive" />
+                 {syntaxAnalysis && !isSyntaxLoading && <p className="text-xs text-muted-foreground mt-2 px-1">{syntaxAnalysis.parseStatus}</p>}
+            </TabsContent>
+
+            {/* Semantic Analysis Tabs */}
+             <TabsContent value="semanticErrors" className="mt-0">
+                 {isSemanticsLoading ? renderSkeletonList(10) : (
+                     semanticAnalysis ? (
+                         <>
+                             <ResultListDisplay title="Semantic Errors" items={semanticAnalysis.semanticErrors} isLoading={false} loadingMessage="" emptyMessage="No semantic errors reported." gradientFrom="from-orange-100" gradientTo="to-amber-100" borderColor="border-orange-300" indexFormatter={(idx) => `Error ${idx+1}`} itemClassName="text-amber-700 dark:text-amber-400" />
+                             <ResultListDisplay title="Semantic Warnings" items={semanticAnalysis.warnings} isLoading={false} loadingMessage="" emptyMessage="No semantic warnings." gradientFrom="from-yellow-100" gradientTo="to-lime-100" borderColor="border-yellow-300" indexFormatter={(idx) => `Warn ${idx+1}`} itemClassName="text-yellow-700 dark:text-yellow-400" />
+                              <p className="text-xs text-muted-foreground mt-2 px-1">{semanticAnalysis.analysisSummary}</p>
+                         </>
+                     ) : <p className="text-muted-foreground text-center py-8">Perform Semantic Analysis to see results.</p>
+                 )}
+             </TabsContent>
+
+
             <TabsContent value="quadruples" className="mt-0">
-                <ResultListDisplay
-                    title="Quadruples"
-                    items={intermediateCode?.quadruples ?? []}
-                    isLoading={isIntermediateCodeLoading}
-                    loadingMessage="Generating Quadruples..."
-                    emptyMessage="Generate Intermediate Code to see Quadruples."
-                    gradientFrom="from-blue-100" // Example colors
-                    gradientTo="to-purple-100"
-                    borderColor="border-blue-300"
-                    indexFormatter={(index) => `${index}`} // Quad index starts at 0 usually
-                />
+                <ResultListDisplay title="Quadruples" items={intermediateCode?.quadruples} isLoading={isIntermediateCodeLoading} loadingMessage="Generating Quadruples..." emptyMessage="Generate IC." gradientFrom="from-blue-100" gradientTo="to-purple-100" borderColor="border-blue-300" indexFormatter={(index) => `${index}`} />
             </TabsContent>
 
             <TabsContent value="triples" className="mt-0">
-                <ResultListDisplay
-                    title="Triples"
-                    items={intermediateCode?.triples ?? []}
-                    isLoading={isIntermediateCodeLoading}
-                    loadingMessage="Generating Triples..."
-                    emptyMessage="Generate Intermediate Code to see Triples."
-                    gradientFrom="from-green-100"
-                    gradientTo="to-teal-100"
-                    borderColor="border-green-300"
-                     // Index format is often embedded: (0: ...)
-                    indexFormatter={(index) => ``} // Remove default index
-                />
+                <ResultListDisplay title="Triples" items={intermediateCode?.triples} isLoading={isIntermediateCodeLoading} loadingMessage="Generating Triples..." emptyMessage="Generate IC." gradientFrom="from-green-100" gradientTo="to-teal-100" borderColor="border-green-300" indexFormatter={() => ``} />
              </TabsContent>
 
              <TabsContent value="indirectTriples" className="mt-0">
                  {isIntermediateCodeLoading ? renderSkeletonList(15) : (
                      intermediateCode?.indirectTriples && (intermediateCode.indirectTriples.instructions.length > 0 || intermediateCode.indirectTriples.triplesTable.length > 0) ? (
                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                             <ResultListDisplay
-                                 title="Indirect Triples - Instructions"
-                                 items={intermediateCode.indirectTriples.instructions}
-                                 isLoading={false} // Already handled above
-                                 loadingMessage=""
-                                 emptyMessage="No instructions."
-                                 gradientFrom="from-yellow-100"
-                                 gradientTo="to-orange-100"
-                                 borderColor="border-yellow-300"
-                                 indexFormatter={(index) => `${index}`} // Instruction index
-                             />
-                             <ResultListDisplay
-                                 title="Indirect Triples - Triples Table"
-                                 items={intermediateCode.indirectTriples.triplesTable}
-                                 isLoading={false} // Already handled above
-                                 loadingMessage=""
-                                 emptyMessage="Triples table is empty."
-                                 gradientFrom="from-pink-100"
-                                 gradientTo="to-red-100"
-                                 borderColor="border-pink-300"
-                                 // Index format is often embedded: (0: ...)
-                                indexFormatter={(index) => ``} // Remove default index
-                             />
+                             <ResultListDisplay title="Indirect Triples - Instructions" items={intermediateCode.indirectTriples.instructions} isLoading={false} loadingMessage="" emptyMessage="No instructions." gradientFrom="from-yellow-100" gradientTo="to-orange-100" borderColor="border-yellow-300" indexFormatter={(index) => `${index}`} />
+                             <ResultListDisplay title="Indirect Triples - Triples Table" items={intermediateCode.indirectTriples.triplesTable} isLoading={false} loadingMessage="" emptyMessage="Triples table empty." gradientFrom="from-pink-100" gradientTo="to-red-100" borderColor="border-pink-300" indexFormatter={() => ``} />
                          </div>
-                     ) : (
-                         <p className="text-muted-foreground text-center py-8">Generate Intermediate Code to see Indirect Triples.</p>
-                     )
+                     ) : ( <p className="text-muted-foreground text-center py-8">Generate IC.</p> )
                  )}
              </TabsContent>
 
-
-             {/* Machine Code Tab */}
              <TabsContent value="machineCode" className="mt-0">
-                <ResultListDisplay
-                    title="Machine Code"
-                    items={machineCode}
-                    isLoading={isMachineCodeLoading}
-                    loadingMessage="Generating Machine Code..."
-                    emptyMessage="Generate Machine Code to see the output."
-                    gradientFrom="from-muted/60"
-                    gradientTo="to-primary/20"
-                    borderColor="border-primary/50"
-                    indexFormatter={(index) => index.toString(16).padStart(4, '0')} // Hex index for MC
-                />
+                <ResultListDisplay title="Machine Code" items={machineCode} isLoading={isMachineCodeLoading} loadingMessage="Generating MC..." emptyMessage="Generate MC." gradientFrom="from-muted/60" gradientTo="to-primary/20" borderColor="border-primary/50" indexFormatter={(index) => index.toString(16).padStart(4, '0')} />
             </TabsContent>
 
-            {/* Fallback Message */}
-            { !isLoading && !isMachineCodeLoading && !isIntermediateCodeLoading && !hasLexerContent && !hasMachineCodeContent && !hasIntermediateCodeContent && (
+            { !isLoading && !isMachineCodeLoading && !isIntermediateCodeLoading && !isSyntaxLoading && !isSemanticsLoading && !hasLexerContent && !hasMachineCodeContent && !hasIntermediateCodeContent && !hasSyntaxContent && !hasSemanticsContent && (
                  <div className="flex flex-col items-center justify-center h-full text-center text-muted-foreground p-8">
-                     <p>Enter code in the editor and click 'Analyze', 'Generate IC', or 'Generate MC' to see the results.</p>
+                     <p>Enter code and click an analysis/generation button.</p>
                 </div>
             )}
           </ScrollArea>
@@ -377,4 +226,3 @@ export function AnalysisResults({
     </Card>
   );
 }
-

@@ -12,7 +12,7 @@ import { analyzeSyntax, type AnalyzeSyntaxOutput } from '@/ai/flows/analyze-synt
 import { analyzeSemantics, type AnalyzeSemanticsOutput } from '@/ai/flows/analyze-semantics-flow';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Trash2, FileCode, Cpu, Braces, ScanSearch, FileJson2 } from 'lucide-react'; // Added ScanSearch, FileJson2
+import { Play, Trash2, FileCode, Cpu, ScanSearch, Network, Shuffle, Loader2 } from 'lucide-react'; // Added Network, Shuffle, Loader2
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
 import { sampleCode } from '@/lib/sample-code';
@@ -30,7 +30,7 @@ export function Analyzer() {
   const [syntaxAnalysis, setSyntaxAnalysis] = useState<AnalyzeSyntaxOutput | null>(null);
   const [semanticAnalysis, setSemanticAnalysis] = useState<AnalyzeSemanticsOutput | null>(null);
 
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isLexicalLoading, setIsLexicalLoading] = useState<boolean>(false);
   const [isMachineCodeLoading, setIsMachineCodeLoading] = useState<boolean>(false);
   const [isIntermediateCodeLoading, setIsIntermediateCodeLoading] = useState<boolean>(false);
   const [isSyntaxLoading, setIsSyntaxLoading] = useState<boolean>(false);
@@ -50,9 +50,9 @@ export function Analyzer() {
      setIntermediateCode(null);
      setSyntaxAnalysis(null);
      setSemanticAnalysis(null);
-  }, [language]);
+  }, [language]); // Removed reset of code here, handled by handleLanguageChange
 
-  const handleAnalyze = useCallback(async () => {
+  const handleAnalyzeLexical = useCallback(async () => {
     if (!code.trim()) {
        toast({
          title: "Input Required",
@@ -61,14 +61,20 @@ export function Analyzer() {
        });
       return;
     }
-    setIsLoading(true);
+    setIsLexicalLoading(true);
     setTokens([]);
     setSymbolTable([]);
     setLexemeStats([]);
     setTac([]);
+    // Keep AI results unless explicitly cleared or re-run
+    // setSyntaxAnalysis(null);
+    // setSemanticAnalysis(null);
+    // setIntermediateCode(null);
+    // setMachineCode([]);
+
 
     try {
-       await new Promise(resolve => setTimeout(resolve, 500));
+       await new Promise(resolve => setTimeout(resolve, 300)); // Simulate short delay
       const { tokens, symbolTable, lexemeStats, tac } = analyzeCode(code, language);
       setTokens(tokens);
       setSymbolTable(symbolTable);
@@ -90,7 +96,7 @@ export function Analyzer() {
         setLexemeStats([]);
         setTac([]);
     } finally {
-      setIsLoading(false);
+      setIsLexicalLoading(false);
     }
   }, [code, language, toast]);
 
@@ -124,10 +130,10 @@ export function Analyzer() {
        try {
          const result = await generateIntermediateCode({ code, language });
          setIntermediateCode(result);
-         toast({ title: "Intermediate Code Generated", description: `Successfully generated IC representations.` });
+         toast({ title: "Intermediate Code Generated (AI)", description: `Successfully generated IC representations.` });
        } catch (error) {
          console.error("Intermediate code generation error:", error);
-          toast({ title: "IC Generation Failed", description: `${error instanceof Error ? error.message : 'Check console.'}`, variant: "destructive" });
+          toast({ title: "IC Generation Failed (AI)", description: `${error instanceof Error ? error.message : 'Check console.'}`, variant: "destructive" });
           setIntermediateCode(null);
        } finally {
          setIsIntermediateCodeLoading(false);
@@ -176,7 +182,7 @@ export function Analyzer() {
 
 
   const handleReset = useCallback(() => {
-    setCode('');
+    setCode(sampleCode[language]); // Reset to current language's sample code
     setTokens([]);
     setSymbolTable([]);
     setLexemeStats([]);
@@ -185,11 +191,12 @@ export function Analyzer() {
     setIntermediateCode(null);
     setSyntaxAnalysis(null);
     setSemanticAnalysis(null);
-    toast({ title: "Reset Complete", description: "Editor and results cleared." });
-  }, [toast]);
+    toast({ title: "Reset Complete", description: "Editor and results cleared. Sample code loaded." });
+  }, [language, toast]); // Add language to dependency array
 
   const handleUseSample = useCallback(() => {
     setCode(sampleCode[language]);
+    // Optionally clear results when loading sample, or keep them
     setTokens([]);
     setSymbolTable([]);
     setLexemeStats([]);
@@ -204,7 +211,8 @@ export function Analyzer() {
   const handleLanguageChange = (value: string) => {
     const newLang = value as 'java' | 'cpp';
     setLanguage(newLang);
-    setCode(sampleCode[newLang]);
+    setCode(sampleCode[newLang]); // Load new sample code
+    // Clear all results
     setTokens([]);
     setSymbolTable([]);
     setLexemeStats([]);
@@ -213,17 +221,21 @@ export function Analyzer() {
     setIntermediateCode(null);
     setSyntaxAnalysis(null);
     setSemanticAnalysis(null);
-     toast({ title: "Language Changed", description: `Switched to ${newLang.toUpperCase()}. Sample loaded.` });
+     toast({ title: "Language Changed", description: `Switched to ${newLang.toUpperCase()}. Sample code loaded and results cleared.` });
   };
 
-  const anyLoading = isLoading || isMachineCodeLoading || isIntermediateCodeLoading || isSyntaxLoading || isSemanticsLoading;
+  const anyLoading = isLexicalLoading || isMachineCodeLoading || isIntermediateCodeLoading || isSyntaxLoading || isSemanticsLoading;
 
   if (!isClient) {
-    return null;
+    return (
+        <div className="flex items-center justify-center h-screen">
+            <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </div>
+    );
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-theme(spacing.24))]">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-theme(spacing.24)-2rem)]"> {/* Adjusted height */}
       <Card className="flex flex-col h-full border-primary shadow-lg bg-gradient-to-br from-background to-secondary/20 rounded-xl">
         <CardContent className="p-4 flex flex-col flex-grow">
           <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
@@ -243,28 +255,28 @@ export function Analyzer() {
             </div>
 
             <div className="flex gap-2 flex-wrap justify-end">
-               <Button onClick={handleAnalyze} disabled={anyLoading || !code.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                 <Play className="mr-1 h-4 w-4" /> {isLoading ? 'Lexing...' : 'Lexical'}
+               <Button onClick={handleAnalyzeLexical} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-pink-500 to-rose-500 text-white hover:from-pink-600 hover:to-rose-600 shadow-md">
+                 <Play className="mr-1 h-4 w-4" /> {isLexicalLoading ? 'Lexing...' : 'Lexical'}
                </Button>
-               <Button onClick={handleAnalyzeSyntax} disabled={anyLoading || !code.trim()} className="bg-teal-500 hover:bg-teal-500/90 text-white">
-                  <FileJson2 className="mr-1 h-4 w-4" /> {isSyntaxLoading ? 'Parsing...' : 'Syntax'}
+               <Button onClick={handleAnalyzeSyntax} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 shadow-md">
+                  <Network className="mr-1 h-4 w-4" /> {isSyntaxLoading ? 'Parsing...' : 'Syntax'}
                </Button>
-               <Button onClick={handleAnalyzeSemantics} disabled={anyLoading || !code.trim()} className="bg-purple-500 hover:bg-purple-500/90 text-white">
+               <Button onClick={handleAnalyzeSemantics} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 shadow-md">
                   <ScanSearch className="mr-1 h-4 w-4" /> {isSemanticsLoading ? 'Checking...' : 'Semantic'}
                </Button>
-               <Button onClick={handleGenerateIntermediateCode} disabled={anyLoading || !code.trim()} className="bg-[#FF69B4] hover:bg-[#FF69B4]/90 text-white">
-                  <Braces className="mr-1 h-4 w-4" /> {isIntermediateCodeLoading ? 'Gen IC...' : 'Gen IC'}
+               <Button onClick={handleGenerateIntermediateCode} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 shadow-md">
+                  <Shuffle className="mr-1 h-4 w-4" /> {isIntermediateCodeLoading ? 'Gen IC...' : 'Gen IC'}
                </Button>
-               <Button onClick={handleGenerateMachineCode} disabled={anyLoading || !code.trim()} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+               <Button onClick={handleGenerateMachineCode} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-lime-500 to-green-500 text-white hover:from-lime-600 hover:to-green-600 shadow-md">
                   <Cpu className="mr-1 h-4 w-4" /> {isMachineCodeLoading ? 'Gen MC...' : 'Gen MC'}
                </Button>
-               <Button onClick={handleReset} variant="outline" size="icon" disabled={anyLoading} className="border-destructive text-destructive hover:bg-destructive/10">
+               <Button onClick={handleReset} variant="outline" size="icon" disabled={anyLoading} className="border-destructive text-destructive hover:bg-destructive/10 shadow-sm">
                  <Trash2 className="h-4 w-4" />
                   <span className="sr-only">Reset</span>
                </Button>
             </div>
           </div>
-           <div className="flex-grow min-h-[40vh] lg:min-h-0 border border-accent/50 rounded-md overflow-hidden shadow-inner">
+           <div className="flex-grow min-h-[30vh] md:min-h-[40vh] lg:min-h-0 border border-accent/50 rounded-md overflow-hidden shadow-inner"> {/* Adjusted min-height */}
              <CodeEditor
               language={language}
               value={code}
@@ -278,12 +290,12 @@ export function Analyzer() {
         tokens={tokens}
         symbolTable={symbolTable}
         lexemeStats={lexemeStats}
-        tac={tac}
-        machineCode={machineCode}
-        intermediateCode={intermediateCode}
-        syntaxAnalysis={syntaxAnalysis}
-        semanticAnalysis={semanticAnalysis}
-        isLoading={isLoading}
+        tac={tac} // From lexer
+        machineCode={machineCode} // From AI
+        intermediateCode={intermediateCode} // From AI
+        syntaxAnalysis={syntaxAnalysis} // From AI
+        semanticAnalysis={semanticAnalysis} // From AI
+        isLoading={isLexicalLoading} // For Lexical Analysis parts
         isMachineCodeLoading={isMachineCodeLoading}
         isIntermediateCodeLoading={isIntermediateCodeLoading}
         isSyntaxLoading={isSyntaxLoading}

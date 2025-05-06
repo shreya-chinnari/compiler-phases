@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -26,29 +27,29 @@ const TokenTypeBadge: React.FC<{ type: string }> = ({ type }) => {
   switch (type) {
     case 'KEYWORD':
       bgColor = 'bg-[#AEC6CF]'; // Pastel Blue
-      textColor = 'text-[#263238]' // Darker Blue-Gray text
+      textColor = 'text-[#263238]'; // Darker Blue-Gray text
       break;
     case 'IDENTIFIER':
       bgColor = 'bg-[#B0EACD]'; // Pastel Green
-       textColor = 'text-[#1B5E20]' // Darker Green text
+      textColor = 'text-[#1B5E20]'; // Darker Green text
       break;
     case 'LITERAL_STRING':
       bgColor = 'bg-[#FFD1DC]'; // Pastel Pink
-       textColor = 'text-[#880E4F]' // Darker Pink/Magenta text
+      textColor = 'text-[#880E4F]'; // Darker Pink/Magenta text
       break;
     case 'LITERAL_NUMBER':
     case 'LITERAL_BOOLEAN':
     case 'LITERAL_CHAR':
       bgColor = 'bg-[#FFFFB3]'; // Pastel Yellow
-       textColor = 'text-[#827717]' // Darker Yellow/Brown text
+      textColor = 'text-[#827717]'; // Darker Yellow/Brown text
       break;
     case 'OPERATOR':
       bgColor = 'bg-[#FFB347]'; // Pastel Orange
-       textColor = 'text-[#E65100]' // Darker Orange text
+      textColor = 'text-[#E65100]'; // Darker Orange text
       break;
     case 'PUNCTUATION':
       bgColor = 'bg-[#B0EACD]'; // Pastel Green (reusing)
-      textColor = 'text-[#1B5E20]' // Darker Green text
+      textColor = 'text-[#1B5E20]'; // Darker Green text
       break;
     case 'ERROR':
       bgColor = 'bg-destructive'; // Use theme's destructive color
@@ -76,22 +77,32 @@ const TokenTypeBadge: React.FC<{ type: string }> = ({ type }) => {
 
 export function AnalysisResults({ tokens, symbolTable, lexemeStats, tac, isLoading }: AnalysisResultsProps) {
 
+  // Ensure no whitespace nodes are rendered within TableRow
   const renderSkeletonTable = (cols: number, rows: number = 5) => (
     <Table>
       <TableHeader>
         <TableRow>
-          {[...Array(cols)].map((_, i) => <TableHead key={i}><Skeleton className="h-4 w-20" /></TableHead>)}
+          {[...Array(cols)].map((_, i) => (
+            <TableHead key={i}>
+              <Skeleton className="h-4 w-20" />
+            </TableHead>
+          ))}
         </TableRow>
       </TableHeader>
       <TableBody>
         {[...Array(rows)].map((_, i) => (
           <TableRow key={i}>
-            {[...Array(cols)].map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-full" /></TableCell>)}
+            {[...Array(cols)].map((_, j) => (
+              <TableCell key={j}>
+                <Skeleton className="h-4 w-full" />
+              </TableCell>
+            ))}
           </TableRow>
         ))}
       </TableBody>
     </Table>
   );
+
 
   const renderSkeletonList = (rows: number = 10) => (
     <div className="space-y-2 p-4">
@@ -226,3 +237,4 @@ export function AnalysisResults({ tokens, symbolTable, lexemeStats, tac, isLoadi
     </Card>
   );
 }
+

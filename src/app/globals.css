@@ -87,8 +87,7 @@ body {
   }
   body {
     @apply bg-background text-foreground;
-     /* Default to dark theme */
-    @apply dark;
+     /* ThemeProvider handles dark mode via html class */
   }
 }
 

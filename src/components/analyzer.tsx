@@ -12,7 +12,7 @@ import { analyzeSyntax, type AnalyzeSyntaxOutput } from '@/ai/flows/analyze-synt
 import { analyzeSemantics, type AnalyzeSemanticsOutput } from '@/ai/flows/analyze-semantics-flow';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Trash2, FileCode, Cpu, ScanSearch, Network, Shuffle, Loader2, Wand2 } from 'lucide-react';
+import { Play, Trash2, FileCode, Cpu, ScanSearch, Network, Shuffle, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
 import { sampleCode } from '@/lib/sample-code';
@@ -305,7 +305,7 @@ export function Analyzer() {
                   disabled={anyLoading || !code.trim()} 
                   className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-md"
                 >
-                 <Wand2 className="mr-1 h-4 w-4" /> {isAllLoading ? 'Analyzing All...' : 'Analyze All'}
+                  {isAllLoading ? 'Analyzing All...' : 'Analyze All'}
                </Button>
                <Button onClick={() => handleAnalyzeLexical()} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-pink-500 to-rose-500 text-white hover:from-pink-600 hover:to-rose-600 shadow-md">
                  <Play className="mr-1 h-4 w-4" /> {isLexicalLoading ? 'Lexing...' : 'Lexical'}

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -7,9 +6,10 @@ import { AnalysisResults } from '@/components/analysis-results';
 import type { Token, SymbolTableEntry, LexemeStat } from '@/lib/types';
 import { analyzeCode } from '@/lib/lexer';
 import { generateMachineCode } from '@/ai/flows/generate-machine-code-flow'; // Import the Genkit flow
+import { generateIntermediateCode, type GenerateIntermediateCodeOutput } from '@/ai/flows/generate-intermediate-code-flow'; // Import IC Genkit flow
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Play, Trash2, FileCode, Cpu } from 'lucide-react'; // Added Cpu icon
+import { Play, Trash2, FileCode, Cpu, Braces } from 'lucide-react'; // Added Braces icon for IC
 import { Card, CardContent } from '@/components/ui/card';
 import { useToast } from "@/hooks/use-toast";
 import { sampleCode } from '@/lib/sample-code';
@@ -22,9 +22,12 @@ export function Analyzer() {
   const [symbolTable, setSymbolTable] = useState<SymbolTableEntry[]>([]);
   const [lexemeStats, setLexemeStats] = useState<LexemeStat[]>([]);
   const [tac, setTac] = useState<string[]>([]);
-  const [machineCode, setMachineCode] = useState<string[]>([]); // Added state for Machine Code
+  const [machineCode, setMachineCode] = useState<string[]>([]);
+  // Intermediate Code state
+  const [intermediateCode, setIntermediateCode] = useState<GenerateIntermediateCodeOutput | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isMachineCodeLoading, setIsMachineCodeLoading] = useState<boolean>(false); // Loading state for machine code
+  const [isMachineCodeLoading, setIsMachineCodeLoading] = useState<boolean>(false);
+  const [isIntermediateCodeLoading, setIsIntermediateCodeLoading] = useState<boolean>(false); // Loading state for IC
   const { toast } = useToast();
 
   // Avoid hydration mismatch for client-side state
@@ -38,7 +41,8 @@ export function Analyzer() {
      setSymbolTable([]);
      setLexemeStats([]);
      setTac([]);
-     setMachineCode([]); // Reset machine code
+     setMachineCode([]);
+     setIntermediateCode(null); // Reset IC
   }, [language]); // Rerun when language changes
 
   const handleAnalyze = useCallback(async () => {
@@ -56,7 +60,7 @@ export function Analyzer() {
     setSymbolTable([]);
     setLexemeStats([]);
     setTac([]);
-    // Keep machine code as is unless explicitly regenerated
+    // Keep machine code and IC as is unless explicitly regenerated
 
     try {
        // Simulate network delay / heavy computation
@@ -87,7 +91,6 @@ export function Analyzer() {
     }
   }, [code, language, toast]);
 
-  // --- Handler for Generating Machine Code ---
   const handleGenerateMachineCode = useCallback(async () => {
       if (!code.trim()) {
          toast({
@@ -120,13 +123,48 @@ export function Analyzer() {
       }
     }, [code, language, toast]);
 
+   // --- Handler for Generating Intermediate Code ---
+   const handleGenerateIntermediateCode = useCallback(async () => {
+       if (!code.trim()) {
+          toast({
+            title: "Input Required",
+            description: "Please enter some code to generate intermediate code.",
+            variant: "destructive",
+          });
+         return;
+       }
+       setIsIntermediateCodeLoading(true);
+       setIntermediateCode(null); // Reset previous IC
+
+       try {
+         const result = await generateIntermediateCode({ code, language });
+         setIntermediateCode(result);
+         toast({
+           title: "Intermediate Code Generated",
+           description: `Successfully generated Quadruples, Triples, and Indirect Triples.`,
+         });
+       } catch (error) {
+         console.error("Intermediate code generation error:", error);
+          toast({
+            title: "Intermediate Code Generation Failed",
+            description: `An error occurred. ${error instanceof Error ? error.message : 'Check console for details.'}`,
+            variant: "destructive",
+          });
+          setIntermediateCode(null); // Clear on failure
+       } finally {
+         setIsIntermediateCodeLoading(false);
+       }
+     }, [code, language, toast]);
+
+
   const handleReset = useCallback(() => {
     setCode('');
     setTokens([]);
     setSymbolTable([]);
     setLexemeStats([]);
     setTac([]);
-    setMachineCode([]); // Reset machine code
+    setMachineCode([]);
+    setIntermediateCode(null); // Reset IC
     toast({ title: "Reset Complete", description: "Editor and results cleared." });
   }, [toast]);
 
@@ -137,7 +175,8 @@ export function Analyzer() {
     setSymbolTable([]);
     setLexemeStats([]);
     setTac([]);
-    setMachineCode([]); // Reset machine code when loading sample
+    setMachineCode([]);
+    setIntermediateCode(null); // Reset IC when loading sample
      toast({ title: "Sample Code Loaded", description: `Loaded sample ${language.toUpperCase()} code.` });
   }, [language, toast]);
 
@@ -150,7 +189,8 @@ export function Analyzer() {
     setSymbolTable([]);
     setLexemeStats([]);
     setTac([]);
-    setMachineCode([]); // Reset machine code on language change
+    setMachineCode([]);
+    setIntermediateCode(null); // Reset IC on language change
      toast({ title: "Language Changed", description: `Switched to ${newLang.toUpperCase()}. Sample loaded.` });
   };
 
@@ -168,7 +208,7 @@ export function Analyzer() {
           <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
             <div className='flex items-center gap-2'>
              {/* Style the select dropdown */}
-             <Select onValueChange={handleLanguageChange} value={language} disabled={isLoading || isMachineCodeLoading}>
+             <Select onValueChange={handleLanguageChange} value={language} disabled={isLoading || isMachineCodeLoading || isIntermediateCodeLoading}>
                  <SelectTrigger className="w-[120px] bg-card border-accent focus:ring-accent/50">
                    <SelectValue placeholder="Language" />
                  </SelectTrigger>
@@ -178,22 +218,26 @@ export function Analyzer() {
                  </SelectContent>
                </Select>
                {/* Style the Sample button */}
-               <Button onClick={handleUseSample} variant="secondary" size="sm" disabled={isLoading || isMachineCodeLoading} className="bg-secondary text-secondary-foreground hover:bg-secondary/80">
+               <Button onClick={handleUseSample} variant="secondary" size="sm" disabled={isLoading || isMachineCodeLoading || isIntermediateCodeLoading} className="bg-secondary text-secondary-foreground hover:bg-secondary/80">
                  <FileCode className="mr-1 h-4 w-4" /> Sample
                </Button>
             </div>
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap justify-end"> {/* Ensure buttons wrap */}
                {/* Style the Analyze button */}
-               <Button onClick={handleAnalyze} disabled={isLoading || !code.trim() || isMachineCodeLoading} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+               <Button onClick={handleAnalyze} disabled={isLoading || !code.trim() || isMachineCodeLoading || isIntermediateCodeLoading} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                  <Play className="mr-1 h-4 w-4" /> {isLoading ? 'Analyzing...' : 'Analyze'}
                </Button>
+                {/* Added Generate Intermediate Code button */}
+               <Button onClick={handleGenerateIntermediateCode} disabled={isIntermediateCodeLoading || !code.trim() || isLoading || isMachineCodeLoading} className="bg-[#FF69B4] hover:bg-[#FF69B4]/90 text-white"> {/* Example: Hot Pink */}
+                  <Braces className="mr-1 h-4 w-4" /> {isIntermediateCodeLoading ? 'Generating IC...' : 'Generate IC'}
+               </Button>
                {/* Added Generate Machine Code button */}
-               <Button onClick={handleGenerateMachineCode} disabled={isMachineCodeLoading || !code.trim() || isLoading} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                  <Cpu className="mr-1 h-4 w-4" /> {isMachineCodeLoading ? 'Generating...' : 'Generate MC'}
+               <Button onClick={handleGenerateMachineCode} disabled={isMachineCodeLoading || !code.trim() || isLoading || isIntermediateCodeLoading} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                  <Cpu className="mr-1 h-4 w-4" /> {isMachineCodeLoading ? 'Generating MC...' : 'Generate MC'}
                </Button>
                {/* Style the Reset button */}
-               <Button onClick={handleReset} variant="outline" size="icon" disabled={isLoading || isMachineCodeLoading} className="border-destructive text-destructive hover:bg-destructive/10">
+               <Button onClick={handleReset} variant="outline" size="icon" disabled={isLoading || isMachineCodeLoading || isIntermediateCodeLoading} className="border-destructive text-destructive hover:bg-destructive/10">
                  <Trash2 className="h-4 w-4" />
                   <span className="sr-only">Reset</span>
                </Button>
@@ -215,9 +259,11 @@ export function Analyzer() {
         symbolTable={symbolTable}
         lexemeStats={lexemeStats}
         tac={tac}
-        machineCode={machineCode} // Pass machine code data
+        machineCode={machineCode}
+        intermediateCode={intermediateCode} // Pass IC data
         isLoading={isLoading}
-        isMachineCodeLoading={isMachineCodeLoading} // Pass machine code loading state
+        isMachineCodeLoading={isMachineCodeLoading}
+        isIntermediateCodeLoading={isIntermediateCodeLoading} // Pass IC loading state
       />
     </div>
   );

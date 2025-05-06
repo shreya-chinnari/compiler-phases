@@ -120,36 +120,41 @@ export function Analyzer() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-theme(spacing.24))]"> {/* Adjust height */}
-      <Card className="flex flex-col h-full">
+      {/* Add border and shadow to the code input card */}
+      <Card className="flex flex-col h-full border-primary shadow-lg bg-gradient-to-br from-background to-secondary/20 rounded-xl">
         <CardContent className="p-4 flex flex-col flex-grow">
           <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
             <div className='flex items-center gap-2'>
+             {/* Style the select dropdown */}
              <Select onValueChange={handleLanguageChange} value={language} disabled={isLoading}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue placeholder="Language" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="java">Java</SelectItem>
-                  <SelectItem value="cpp">C++</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button onClick={handleUseSample} variant="outline" size="sm" disabled={isLoading}>
-                <FileCode className="mr-1 h-4 w-4" /> Sample
-              </Button>
+                 <SelectTrigger className="w-[120px] bg-card border-accent focus:ring-accent/50">
+                   <SelectValue placeholder="Language" />
+                 </SelectTrigger>
+                 <SelectContent className="bg-popover border-accent shadow-lg">
+                   <SelectItem value="java">Java</SelectItem>
+                   <SelectItem value="cpp">C++</SelectItem>
+                 </SelectContent>
+               </Select>
+               {/* Style the Sample button */}
+               <Button onClick={handleUseSample} variant="outline" size="sm" disabled={isLoading} className="border-accent text-accent-foreground hover:bg-accent/80 hover:text-accent-foreground">
+                 <FileCode className="mr-1 h-4 w-4" /> Sample
+               </Button>
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={handleAnalyze} disabled={isLoading || !code.trim()} >
-                <Play className="mr-1 h-4 w-4" /> {isLoading ? 'Analyzing...' : 'Analyze'}
-              </Button>
-              <Button onClick={handleReset} variant="outline" size="icon" disabled={isLoading}>
-                <Trash2 className="h-4 w-4" />
-                 <span className="sr-only">Reset</span>
-              </Button>
+               {/* Style the Analyze button */}
+               <Button onClick={handleAnalyze} disabled={isLoading || !code.trim()} className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                 <Play className="mr-1 h-4 w-4" /> {isLoading ? 'Analyzing...' : 'Analyze'}
+               </Button>
+               {/* Style the Reset button */}
+               <Button onClick={handleReset} variant="outline" size="icon" disabled={isLoading} className="border-destructive text-destructive hover:bg-destructive/10">
+                 <Trash2 className="h-4 w-4" />
+                  <span className="sr-only">Reset</span>
+               </Button>
             </div>
           </div>
           {/* Ensure CodeEditor container allows growth */}
-          <div className="flex-grow min-h-[40vh] lg:min-h-0">
+           <div className="flex-grow min-h-[40vh] lg:min-h-0 border border-accent/50 rounded-md overflow-hidden shadow-inner"> {/* Added border, rounded, overflow, shadow */}
              <CodeEditor
               language={language}
               value={code}

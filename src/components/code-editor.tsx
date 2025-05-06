@@ -14,26 +14,30 @@ interface CodeEditorProps {
 
 export function CodeEditor({ language, value, onChange }: CodeEditorProps) {
   const { resolvedTheme } = useTheme();
+  // Ensure editorTheme updates when resolvedTheme changes
   const editorTheme = resolvedTheme === 'dark' ? 'vs-dark' : 'light';
 
   // Map our language keys to Monaco's language identifiers
   const monacoLanguage = language === 'cpp' ? 'cpp' : 'java';
 
   return (
-    <div className="h-full w-full rounded-md border border-input overflow-hidden">
+     // Use bg-card to ensure it matches the theme's card background
+    <div className="h-full w-full rounded-md border-0 overflow-hidden bg-card">
        <Editor
         height="100%"
         language={monacoLanguage}
         theme={editorTheme}
         value={value}
         onChange={onChange}
-        loading={<Skeleton className="h-full w-full" />}
+        loading={<Skeleton className="h-full w-full bg-muted" />} // Use muted bg for skeleton
         options={{
           minimap: { enabled: false },
           fontSize: 14,
           scrollBeyondLastLine: false,
           automaticLayout: true, // Ensures editor resizes correctly
           wordWrap: 'on', // Enable word wrapping
+           // Explicitly set background to transparent to inherit from parent div
+          background: 'transparent',
         }}
       />
     </div>

@@ -7,41 +7,41 @@ body {
 }
 
 @layer base {
-  /* Light theme (default) - Vibrant Colors */
+  /* Light theme (default) - More Vibrant & Colorful */
   :root {
-    --background: 210 20% 98%; /* Very Light Cool Gray */
-    --foreground: 220 15% 10%; /* Dark Blue-Gray */
+    --background: 190 60% 95%; /* Light Cyan-Blue */
+    --foreground: 240 15% 15%; /* Dark Navy */
     --card: 0 0% 100%; /* White */
-    --card-foreground: 220 15% 10%;
+    --card-foreground: 240 15% 15%;
     --popover: 0 0% 100%;
-    --popover-foreground: 220 15% 10%;
-    --primary: 205 90% 50%; /* Vibrant Blue */
+    --popover-foreground: 240 15% 15%;
+    --primary: 340 85% 60%; /* Vibrant Pink/Magenta */
     --primary-foreground: 0 0% 100%; /* White */
-    --secondary: 210 30% 94%; /* Light Gray */
-    --secondary-foreground: 220 10% 25%; /* Dark Gray */
-    --muted: 210 30% 94%;
+    --secondary: 45 90% 90%; /* Light Sunny Yellow */
+    --secondary-foreground: 40 50% 20%; /* Dark Brown */
+    --muted: 210 30% 94%; /* Retained Light Gray for subtle elements */
     --muted-foreground: 215 15% 50%; /* Medium Gray */
-    --accent: 160 80% 45%; /* Vibrant Teal/Cyan */
+    --accent: 150 75% 50%; /* Vibrant Teal/Green */
     --accent-foreground: 0 0% 100%; /* White */
     --destructive: 0 84.2% 60.2%; /* Bright Red */
     --destructive-foreground: 0 0% 100%;
-    --border: 210 20% 88%; /* Light Gray Border */
-    --input: 210 20% 96%; /* Slightly Off-white Input */
-    --ring: 205 90% 60%; /* Lighter Vibrant Blue for rings */
+    --border: 190 30% 88%; /* Lighter Cyan-Blue Border */
+    --input: 190 40% 98%; /* Very Light Cyan Input */
+    --ring: 340 85% 70%; /* Lighter Vibrant Pink for rings */
     --radius: 0.5rem;
-    --chart-1: 205 80% 55%; /* Chart Vibrant Blue */
-    --chart-2: 160 70% 50%; /* Chart Vibrant Teal */
-    --chart-3: 280 75% 60%; /* Chart Vibrant Purple */
-    --chart-4: 350 85% 65%; /* Chart Vibrant Pink */
-    --chart-5: 50 90% 55%; /* Chart Vibrant Orange */
-    --sidebar-background: 210 20% 96%; /* Light Gray */
-    --sidebar-foreground: 220 15% 20%; /* Dark Blue-Gray */
-    --sidebar-primary: 205 90% 50%; /* Vibrant Blue */
-    --sidebar-primary-foreground: 0 0% 100%; /* White */
-    --sidebar-accent: 210 30% 90%; /* Lighter Gray */
+    --chart-1: 340 80% 65%; /* Chart Vibrant Pink */
+    --chart-2: 150 70% 55%; /* Chart Vibrant Teal */
+    --chart-3: 260 75% 60%; /* Chart Vibrant Purple */
+    --chart-4: 20 85% 65%;  /* Chart Vibrant Orange */
+    --chart-5: 50 90% 55%;  /* Chart Vibrant Gold */
+    --sidebar-background: 210 20% 96%; /* Keeping sidebar subtle */
+    --sidebar-foreground: 220 15% 20%;
+    --sidebar-primary: 150 75% 50%; /* Sidebar Primary matches Accent */
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 210 30% 90%;
     --sidebar-accent-foreground: 220 15% 15%;
-    --sidebar-border: 210 20% 85%; /* Slightly Darker Border */
-    --sidebar-ring: 160 80% 55%; /* Vibrant Teal ring */
+    --sidebar-border: 210 20% 85%;
+    --sidebar-ring: 150 75% 60%; /* Lighter Accent ring */
   }
 
   /* Dark theme variables - Retained for theme toggling */
@@ -52,32 +52,32 @@ body {
     --card-foreground: 210 40% 98%;
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 205 90% 60%; /* Brighter Blue for dark mode */
+    --primary: 340 85% 65%; /* Brighter Pink for dark mode */
     --primary-foreground: 222.2 84% 4.9%; /* Text on primary elements */
-    --secondary: 217.2 32.6% 17.5%; /* Slightly Lighter Dark */
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 45 70% 20%; /* Darker Yellow/Brown */
+    --secondary-foreground: 45 80% 90%; /* Light Yellow Text */
     --muted: 217.2 32.6% 17.5%;
     --muted-foreground: 215 20.2% 65.1%; /* Grayish */
-    --accent: 160 80% 55%; /* Brighter Teal/Cyan for dark */
+    --accent: 150 75% 60%; /* Brighter Teal/Green for dark */
     --accent-foreground: 222.2 84% 4.9%; /* Dark text on Accent */
     --destructive: 0 72% 50%; /* Slightly darker red for dark */
     --destructive-foreground: 210 40% 98%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 160 80% 60%; /* Brighter Teal ring */
-    --chart-1: 205 70% 65%;
-    --chart-2: 160 60% 60%;
-    --chart-3: 280 65% 70%;
-    --chart-4: 350 75% 75%;
+    --ring: 340 85% 75%; /* Brighter Pink ring */
+    --chart-1: 340 75% 70%;
+    --chart-2: 150 65% 60%;
+    --chart-3: 260 65% 70%;
+    --chart-4: 20 75% 70%;
     --chart-5: 50 80% 65%;
     --sidebar-background: 222.2 84% 4.9%;
     --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 160 80% 55%; /* Teal */
+    --sidebar-primary: 150 80% 55%; /* Teal */
     --sidebar-primary-foreground: 222.2 84% 4.9%;
     --sidebar-accent: 217.2 32.6% 17.5%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 217.2 32.6% 17.5%;
-    --sidebar-ring: 160 80% 60%; /* Teal */
+    --sidebar-ring: 150 80% 60%; /* Teal */
   }
 }
 
@@ -115,4 +115,14 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--accent));
+}
+
+/* Style TabsList */
+@layer components {
+  .tabs-list-colorful {
+    @apply inline-flex h-auto items-center justify-center rounded-lg bg-gradient-to-r from-secondary via-background to-accent/30 p-1.5 shadow-inner;
+  }
+  .tabs-trigger-colorful {
+     @apply inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md text-muted-foreground hover:text-foreground/80;
+  }
 }

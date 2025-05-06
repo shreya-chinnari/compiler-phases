@@ -1,3 +1,4 @@
+
 "use client";
 
 import React from 'react';
@@ -106,8 +107,8 @@ const ResultListDisplay: React.FC<{ title: string; items: string[]; isLoading: b
             {/* <h3 className="text-sm font-medium text-muted-foreground mb-2">{title}</h3> */}
              <pre className={cn("p-4 rounded border text-sm font-mono overflow-x-auto text-foreground/90 shadow-inner", `bg-gradient-to-br ${gradientFrom} ${gradientTo}`, borderColor)}>
                 {items.map((instruction, index) => (
-                    <div key={index} className={cn("py-0.5", index % 2 === 0 ? "bg-transparent" : "bg-black/5 dark:bg-white/5 rounded")}>
-                        <span className='text-primary/80 dark:text-primary/60 mr-2'>{indexFormatter(index)}:</span> {instruction}
+                    <div key={index} className={cn("py-0.5 whitespace-pre-wrap", index % 2 === 0 ? "bg-transparent" : "bg-black/5 dark:bg-white/5 rounded")}>
+                        <span className='text-primary/80 dark:text-primary/60 mr-2 font-semibold'>{indexFormatter(index)}:</span> {instruction}
                     </div>
                 ))}
             </pre>
@@ -177,18 +178,19 @@ export function AnalysisResults({
       </CardHeader>
       <CardContent className="flex-grow p-0 overflow-hidden bg-card"> {/* Ensure card bg */}
         <Tabs defaultValue="tokens" className="h-full flex flex-col">
-          {/* Apply the colorful tab styles */}
-           {/* Adjust grid columns based on number of tabs */}
-           <TabsList className="tabs-list-colorful mx-4 mt-4 mb-2 shrink-0 grid grid-cols-4 md:grid-cols-8 gap-1 h-auto">
-             <TabsTrigger value="tokens" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2"><List className='h-4 w-4'/> Tokens</TabsTrigger>
-             <TabsTrigger value="symbolTable" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2"><TableProperties className='h-4 w-4'/> Symbol Table</TabsTrigger>
-             <TabsTrigger value="stats" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2"><BarChart3 className='h-4 w-4'/> Lexeme Stats</TabsTrigger>
-             <TabsTrigger value="tac" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2"><TerminalSquare className='h-4 w-4'/> TAC</TabsTrigger>
-             <TabsTrigger value="quadruples" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2"><Braces className='h-4 w-4'/> Quads</TabsTrigger> {/* IC Quadruples */}
-             <TabsTrigger value="triples" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2"><Binary className='h-4 w-4'/> Triples</TabsTrigger> {/* IC Triples */}
-             <TabsTrigger value="indirectTriples" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2"><Binary className='h-4 w-4'/> Indirect</TabsTrigger> {/* IC Indirect Triples */}
-             <TabsTrigger value="machineCode" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2"><Cpu className='h-4 w-4'/> Machine Code</TabsTrigger>
-           </TabsList>
+           {/* Use flex layout with horizontal scrolling for tabs */}
+           <div className="mx-4 mt-4 mb-2 shrink-0 overflow-x-auto">
+             <TabsList className="tabs-list-colorful inline-flex w-auto min-w-full justify-start">
+               <TabsTrigger value="tokens" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><List className='h-4 w-4'/> Tokens</TabsTrigger>
+               <TabsTrigger value="symbolTable" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><TableProperties className='h-4 w-4'/> Symbol Table</TabsTrigger>
+               <TabsTrigger value="stats" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><BarChart3 className='h-4 w-4'/> Lexeme Stats</TabsTrigger>
+               <TabsTrigger value="tac" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><TerminalSquare className='h-4 w-4'/> TAC</TabsTrigger>
+               <TabsTrigger value="quadruples" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><Braces className='h-4 w-4'/> Quads</TabsTrigger> {/* IC Quadruples */}
+               <TabsTrigger value="triples" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><Binary className='h-4 w-4'/> Triples</TabsTrigger> {/* IC Triples */}
+               <TabsTrigger value="indirectTriples" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><Binary className='h-4 w-4'/> Indirect</TabsTrigger> {/* IC Indirect Triples */}
+               <TabsTrigger value="machineCode" className="tabs-trigger-colorful flex items-center gap-1 text-xs sm:text-sm px-2 shrink-0"><Cpu className='h-4 w-4'/> Machine Code</TabsTrigger>
+             </TabsList>
+           </div>
 
           <ScrollArea className="flex-grow px-4 pb-4">
             {/* Lexer Tabs */}
@@ -375,3 +377,4 @@ export function AnalysisResults({
     </Card>
   );
 }
+

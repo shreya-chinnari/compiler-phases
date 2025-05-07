@@ -14,10 +14,11 @@ export function Header() {
         </div>
         <div className="flex items-center space-x-4">
            {/* Style the subtitle text */}
-           <span className="text-sm text-muted-foreground hidden sm:inline">Lexical Analyzer for Java & C++</span>
+           <span className="text-sm text-muted-foreground hidden sm:inline">Java & C++ supported</span>
           <ModeToggle />
         </div>
       </div>
     </header>
   );
 }
+

@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -280,7 +279,7 @@ export function Analyzer() {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-theme(spacing.24)-2rem)]">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-theme(spacing.24)-2rem)] overflow-hidden">
       <Card className="flex flex-col h-full border-primary shadow-lg bg-gradient-to-br from-background to-secondary/20 rounded-xl">
         <CardContent className="p-4 flex flex-col flex-grow">
           <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
@@ -305,22 +304,28 @@ export function Analyzer() {
                   disabled={anyLoading || !code.trim()} 
                   className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:from-purple-700 hover:to-pink-700 shadow-md"
                 >
-                  {isAllLoading ? 'Analyzing All...' : 'Analyze All'}
+                  {isAllLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {isAllLoading ? 'Analyzing...' : 'Analyze All'}
                </Button>
                <Button onClick={() => handleAnalyzeLexical()} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-pink-500 to-rose-500 text-white hover:from-pink-600 hover:to-rose-600 shadow-md">
-                 <Play className="mr-1 h-4 w-4" /> {isLexicalLoading ? 'Lexing...' : 'Lexical'}
+                 {isLexicalLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-1 h-4 w-4" /> }
+                 {isLexicalLoading ? 'Lexing...' : 'Lexical'}
                </Button>
                <Button onClick={() => handleAnalyzeSyntax()} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white hover:from-teal-600 hover:to-cyan-600 shadow-md">
-                  <Network className="mr-1 h-4 w-4" /> {isSyntaxLoading ? 'Parsing...' : 'Syntax'}
+                  {isSyntaxLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Network className="mr-1 h-4 w-4" /> }
+                  {isSyntaxLoading ? 'Parsing...' : 'Syntax'}
                </Button>
                <Button onClick={() => handleAnalyzeSemantics()} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-purple-500 to-indigo-500 text-white hover:from-purple-600 hover:to-indigo-600 shadow-md">
-                  <ScanSearch className="mr-1 h-4 w-4" /> {isSemanticsLoading ? 'Checking...' : 'Semantic'}
+                  {isSemanticsLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ScanSearch className="mr-1 h-4 w-4" /> }
+                  {isSemanticsLoading ? 'Checking...' : 'Semantic'}
                </Button>
                <Button onClick={() => handleGenerateIntermediateCode()} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:from-amber-600 hover:to-orange-600 shadow-md">
-                  <Shuffle className="mr-1 h-4 w-4" /> {isIntermediateCodeLoading ? 'Gen IC...' : 'Gen IC'}
+                  {isIntermediateCodeLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Shuffle className="mr-1 h-4 w-4" /> }
+                  {isIntermediateCodeLoading ? 'Gen IC...' : 'Gen IC'}
                </Button>
                <Button onClick={() => handleGenerateMachineCode()} disabled={anyLoading || !code.trim()} className="bg-gradient-to-r from-lime-500 to-green-500 text-white hover:from-lime-600 hover:to-green-600 shadow-md">
-                  <Cpu className="mr-1 h-4 w-4" /> {isMachineCodeLoading ? 'Gen MC...' : 'Gen MC'}
+                  {isMachineCodeLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Cpu className="mr-1 h-4 w-4" /> }
+                  {isMachineCodeLoading ? 'Gen MC...' : 'Gen MC'}
                </Button>
                <Button onClick={handleReset} variant="outline" size="icon" disabled={anyLoading} className="border-destructive text-destructive hover:bg-destructive/10 shadow-sm">
                  <Trash2 className="h-4 w-4" />
@@ -347,13 +352,12 @@ export function Analyzer() {
         intermediateCode={intermediateCode} 
         syntaxAnalysis={syntaxAnalysis} 
         semanticAnalysis={semanticAnalysis} 
-        isLoading={isLexicalLoading || isAllLoading} 
-        isMachineCodeLoading={isMachineCodeLoading || isAllLoading}
-        isIntermediateCodeLoading={isIntermediateCodeLoading || isAllLoading}
-        isSyntaxLoading={isSyntaxLoading || isAllLoading}
-        isSemanticsLoading={isSemanticsLoading || isAllLoading}
+        isLoading={isLexicalLoading || (isAllLoading && !tokens.length)} // Show lexical skeleton if all loading and no tokens yet
+        isMachineCodeLoading={isMachineCodeLoading || (isAllLoading && !machineCode.length)}
+        isIntermediateCodeLoading={isIntermediateCodeLoading || (isAllLoading && !intermediateCode)}
+        isSyntaxLoading={isSyntaxLoading || (isAllLoading && !syntaxAnalysis)}
+        isSemanticsLoading={isSemanticsLoading || (isAllLoading && !semanticAnalysis)}
       />
     </div>
   );
 }
-

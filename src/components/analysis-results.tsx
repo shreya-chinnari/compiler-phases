@@ -115,7 +115,7 @@ export function AnalysisResults({
 
 
   return (
-    <Card className="h-full flex flex-col border-accent shadow-lg">
+    <Card className="h-full flex flex-col border-accent shadow-lg overflow-hidden">
       <CardHeader className="pb-2 pt-4 px-4 bg-gradient-to-r from-primary/10 to-accent/10 rounded-t-lg">
         <CardTitle className="text-lg font-semibold text-primary">Analysis Output</CardTitle>
       </CardHeader>
@@ -246,3 +246,5 @@ export function AnalysisResults({
   );
 }
 
+
+    

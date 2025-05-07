@@ -280,7 +280,7 @@ export function Analyzer() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-theme(spacing.24)-2rem)] overflow-hidden">
-      <Card className="flex flex-col h-full border-primary shadow-lg bg-gradient-to-br from-background to-secondary/20 rounded-xl">
+      <Card className="flex flex-col h-full border-primary shadow-lg bg-gradient-to-br from-background to-secondary/20 rounded-xl overflow-hidden">
         <CardContent className="p-4 flex flex-col flex-grow">
           <div className="flex items-center justify-between mb-4 gap-2 flex-wrap">
             <div className='flex items-center gap-2'>
@@ -361,3 +361,6 @@ export function Analyzer() {
     </div>
   );
 }
+
+
+    

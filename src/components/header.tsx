@@ -10,7 +10,7 @@ export function Header() {
            {/* Use primary color for the icon */}
            <Code className="h-6 w-6 text-primary" />
            {/* Style the title text */}
-           <h1 className="text-xl font-bold tracking-tight text-foreground">Code Insights Analyzer</h1>
+           <h1 className="text-xl font-bold tracking-tight text-foreground">Compiler design phases</h1>
         </div>
         <div className="flex items-center space-x-4">
            {/* Style the subtitle text */}

@@ -54,6 +54,7 @@ const singleLineCommentRegexJava = /^\/\/.*/;
 const multiLineCommentRegexJava = /^\/\*[\s\S]*?\*\//;
 const singleLineCommentRegexCpp = /^\/\/.*/;
 const multiLineCommentRegexCpp = /^\/\*[\s\S]*?\*\//;
+const cppPreprocessorDirectiveRegex = /^#.*/; // For C++ preprocessor directives
 
 // --- Lexer Core Function ---
 
@@ -116,15 +117,16 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): Omit<LexerR
       if (existingEntry && existingEntry.scope === currentScope && isDeclaration) {
           // Allow update if only line number changes, otherwise check type
           if (existingEntry.dataType && dataType && existingEntry.dataType !== dataType) {
-              console.error(`Symbol Table Error: Redefinition of '${lexeme}' with a different type ('${dataType}' vs '${existingEntry.dataType}') in scope '${currentScope}' at line ${line}.`);
-              return; // Don't add/update on type mismatch redefinition
+              console.warn(`Symbol Table Info: Redefinition of '${lexeme}' with a different type ('${dataType}' vs '${existingEntry.dataType}') in scope '${currentScope}' at line ${line}. This might be an error or overloading.`);
+              // For lexical analysis, we might still proceed, but semantic analysis should flag this.
+              // Optionally, create a new entry for the overloaded version if language supports it or handle as an error.
           }
            // If not a redefinition error, update line number
           if (!existingEntry.lineNumbers.includes(line)) {
              existingEntry.lineNumbers.push(line);
           }
           // Rule 7: Update other attributes if needed
-           if (dataType && !existingEntry.dataType) existingEntry.dataType = dataType;
+           if (dataType && !existingEntry.dataType) existingEntry.dataType = dataType; // Bind type if not already set
            if (attributes) existingEntry.attributes = { ...existingEntry.attributes, ...attributes };
           symbolTable.set(lexeme, existingEntry); // Update the map
       } else if (!existingEntry || existingEntry.scope !== currentScope) {
@@ -138,11 +140,13 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): Omit<LexerR
               attributes: attributes || {}, // Initialize attributes
           });
       } else {
-          // Exists in current scope, not a declaration - just update line number
+          // Exists in current scope, not a declaration - just update line number and possibly attributes
            if (!existingEntry.lineNumbers.includes(line)) {
                existingEntry.lineNumbers.push(line);
-               symbolTable.set(lexeme, existingEntry); // Update the map
            }
+           if (dataType && !existingEntry.dataType) existingEntry.dataType = dataType; // Try to bind type if encountered later (e.g. usage before full declaration seen)
+           if (attributes) existingEntry.attributes = { ...existingEntry.attributes, ...attributes };
+           symbolTable.set(lexeme, existingEntry); // Update the map
       }
   };
 
@@ -180,6 +184,21 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): Omit<LexerR
       remainingCode = remainingCode.substring(tokenValue.length);
       continue;
     }
+    // C++ Preprocessor Directives
+    if (language === 'cpp' && (match = remainingCode.match(cppPreprocessorDirectiveRegex))) {
+        tokenValue = match[0];
+        // Treat like a single line comment for advancing line/column
+        const lines = tokenValue.split('\n');
+        if (lines.length > 1) {
+            line += lines.length - 1;
+            column = lines[lines.length - 1].length + 1;
+        } else {
+            column += tokenValue.length;
+        }
+        remainingCode = remainingCode.substring(tokenValue.length);
+        continue; // Skip adding as a token, or add as a specific PREPROCESSOR token if needed
+    }
+
 
     // --- Token Identification and Symbol Table Interaction ---
 
@@ -192,10 +211,11 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): Omit<LexerR
          tokenType = 'KEYWORD';
          tokenValue = potentialKeyword;
          // Rule 6: Potential Data Type Binding hint
-         if (['int', 'float', 'double', 'char', 'boolean', 'void', 'string', 'auto', 'long', 'short', 'signed', 'unsigned'].includes(tokenValue)) {
+         if (['int', 'float', 'double', 'char', 'boolean', 'void', 'string', 'auto', 'long', 'short', 'signed', 'unsigned', 'byte', 'wchar_t'].includes(tokenValue)) {
            lastKeywordType = tokenValue; // Remember the type keyword
-         } else {
-           lastKeywordType = null; // Reset if it's not a type keyword
+         } else if (tokenValue !== 'static' && tokenValue !== 'final' && tokenValue !== 'const' && tokenValue !== 'public' && tokenValue !== 'private' && tokenValue !== 'protected') {
+           // Reset if it's not a type keyword or a modifier that can precede a type
+           lastKeywordType = null;
          }
        }
      }
@@ -204,17 +224,30 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): Omit<LexerR
     if (!tokenType && (match = remainingCode.match(identifierRegex))) {
       tokenType = 'IDENTIFIER';
       tokenValue = match[0];
-      isDeclaration = !!lastKeywordType; // It's a declaration if preceded by a type keyword
+      // Determine if this is a declaration by checking if lastKeywordType is set
+      // A more robust check would involve looking at the parse tree or grammar rules
+      const previousToken = tokens.length > 0 ? tokens[tokens.length - 1] : null;
+      isDeclaration = !!lastKeywordType || (previousToken?.type === 'KEYWORD' && ['class', 'interface', 'enum', 'struct'].includes(previousToken.token));
+
       // Rule 2 & 6: Lookup or Insert Identifier
-      addOrUpdateSymbol(tokenValue, tokenType, isDeclaration ? lastKeywordType : null, line, isDeclaration);
-      if(isDeclaration) lastKeywordType = null; // Consume the type hint after declaration
+      // If lastKeywordType is set, this identifier is being declared with that type.
+      // If not, lookup its type if it exists, otherwise, it's an unknown type or usage before declaration.
+      const existingSymbol = lookupSymbol(tokenValue);
+      let inferredDataType = lastKeywordType; // Default to last seen type keyword
+
+      if (!isDeclaration && existingSymbol) {
+          inferredDataType = existingSymbol.dataType; // Use existing type if not a new declaration
+      }
+
+      addOrUpdateSymbol(tokenValue, tokenType, inferredDataType, line, isDeclaration);
+      if(isDeclaration && lastKeywordType) lastKeywordType = null; // Consume the type hint after a potential declaration part
     }
     // Literals
     else if ((match = remainingCode.match(stringLiteralRegex))) {
       tokenType = 'LITERAL_STRING';
       tokenValue = match[0];
-       // Rule 5: Constant Management (optional: add to symbol table or separate literal table)
-       addOrUpdateSymbol(tokenValue, tokenType, 'string', line, false, { isConstant: true, value: JSON.parse(tokenValue) }); // Store parsed value
+       // Rule 5: Constant Management
+       addOrUpdateSymbol(tokenValue, tokenType, (language === 'java' ? 'String' : 'string'), line, false, { isConstant: true, value: JSON.parse(tokenValue) }); // Store parsed value
       lastKeywordType = null;
     } else if ((match = remainingCode.match(charLiteralRegex))) {
         tokenType = 'LITERAL_CHAR';
@@ -225,17 +258,27 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): Omit<LexerR
         tokenType = 'LITERAL_NUMBER';
         tokenValue = match[0];
          // Infer numeric type (simplified)
-         let numType = 'int';
-         if (tokenValue.includes('.') || tokenValue.includes('e') || tokenValue.includes('E')) numType = 'float'; // or double
-         if (tokenValue.endsWith('f') || tokenValue.endsWith('F')) numType = 'float';
-         if (tokenValue.endsWith('l') || tokenValue.endsWith('L')) numType = 'long';
+         let numType = 'int'; // default
+         if (tokenValue.includes('.') || tokenValue.toLowerCase().includes('e')) {
+            numType = tokenValue.toLowerCase().endsWith('f') ? 'float' : 'double';
+         } else if (tokenValue.toLowerCase().endsWith('l')) {
+            numType = 'long';
+         } else if (tokenValue.toLowerCase().endsWith('s')) { // C++ short literal (less common, but for completeness)
+            numType = 'short';
+         }
          addOrUpdateSymbol(tokenValue, tokenType, numType, line, false, { isConstant: true, value: Number(tokenValue) }); // Store numeric value
         lastKeywordType = null;
      } else if (tokenType === 'KEYWORD' && (tokenValue === 'true' || tokenValue === 'false')) {
          tokenType = 'LITERAL_BOOLEAN';
          addOrUpdateSymbol(tokenValue, tokenType, 'boolean', line, false, { isConstant: true, value: tokenValue === 'true' });
          lastKeywordType = null;
+    } else if (tokenType === 'KEYWORD' && tokenValue === 'null') {
+        // 'null' is a literal keyword, usually its type is special (e.g. type of null)
+        // For simplicity, we can assign it a 'null_type' or leave as null and let semantic analysis handle.
+        addOrUpdateSymbol(tokenValue, tokenType, 'null', line, false, {isConstant: true, value: null});
+        lastKeywordType = null;
     }
+
 
     // Operators
     if (!tokenType) { // Check only if not identified above
@@ -244,8 +287,6 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): Omit<LexerR
           if (remainingCode.startsWith(op)) {
             tokenType = 'OPERATOR';
             tokenValue = op;
-             // Rule 2: Lookup Operator (often predefined, not in dynamic table)
-             // Example: addOrUpdateSymbol(tokenValue, tokenType, null, line);
             lastKeywordType = null;
             break;
           }
@@ -261,16 +302,35 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): Omit<LexerR
 
             // Rule 3: Scope Handling
             if (tokenValue === '{') {
-              const newScopeName = `${getCurrentScope()}/block@${line}:${column}`; // More specific scope name
+              const prevToken = tokens.length > 0 ? tokens[tokens.length - 1] : null;
+              let scopeNamePrefix = 'block';
+              // Try to infer if it's a function or class scope for better naming
+              if (prevToken) {
+                if(prevToken.type === 'IDENTIFIER' && tokens[tokens.length-2]?.token === '(') { // Likely function definition name
+                    scopeNamePrefix = `function:${prevToken.token}`;
+                } else if (prevToken.type === 'IDENTIFIER' && (tokens[tokens.length-2]?.token === 'class' || tokens[tokens.length-2]?.token === 'struct' || tokens[tokens.length-2]?.token === 'enum' || tokens[tokens.length-2]?.token === 'interface')) {
+                    scopeNamePrefix = `${tokens[tokens.length-2].token}:${prevToken.token}`;
+                } else if (prevToken.token === ')') { // After function parameters or if condition
+                     // Look further back for function name
+                     let k = tokens.length - 2;
+                     while(k >= 0 && tokens[k].token !== '(') k--; // find opening paren
+                     if(k > 0 && tokens[k-1]?.type === 'IDENTIFIER') {
+                        scopeNamePrefix = `function:${tokens[k-1].token}`;
+                     } else {
+                        scopeNamePrefix = 'control_block'; // e.g. if, for, while block
+                     }
+                }
+              }
+              const newScopeName = `${getCurrentScope()}/${scopeNamePrefix}@L${line}C${column}`; // More specific scope name
               scopeStack.push(newScopeName);
             } else if (tokenValue === '}') {
               if (scopeStack.length > 1) { // Don't pop the global scope
                 scopeStack.pop();
               } else {
-                  console.error(`Scope Error: Unmatched '}' at Line ${line}, Column ${column}`);
+                  // This is an error, but lexer should try to recover. Semantic analysis will catch it properly.
+                  console.warn(`Lexer Warning: Unmatched '}' at Line ${line}, Column ${column}`);
               }
             }
-            // Rule 2: Lookup Punctuation (like operators, often predefined)
             lastKeywordType = null; // Reset type hint on punctuation
         }
     }
@@ -283,7 +343,7 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): Omit<LexerR
     } else {
       // No match found - Error
       const errorChar = remainingCode[0];
-      console.error(`Lexer Error: Invalid character '${errorChar}' at Line ${line}, Column ${column}`);
+      // console.error(`Lexer Error: Invalid character '${errorChar}' at Line ${line}, Column ${column}`);
       tokens.push({ token: errorChar, type: 'ERROR', line, column }); // Add error token
       column += 1;
       remainingCode = remainingCode.substring(1); // Skip the invalid character
@@ -295,10 +355,29 @@ export function analyzeCode(code: string, language: 'java' | 'cpp'): Omit<LexerR
   const lexemeStats = calculateStats(tokens.filter(t => t.type !== 'WHITESPACE' && !t.type.startsWith('COMMENT') && t.type !== 'ERROR'));
 
   // --- Generate Three-Address Code ---
-  const tac = generateTAC(tokens); // Generate TAC from the filtered tokens
+  const tac = generateTAC(tokens.filter(t => t.type !== 'WHITESPACE' && !t.type.startsWith('COMMENT'))); // Generate TAC from the filtered tokens
 
   // Rule 10: Exporting - Convert Map to Array for the result
   const finalSymbolTable = Array.from(symbolTable.values());
+
+  // Post-process symbol table to infer data types better where 'auto' or generic types were used.
+  // This is a simplified version. True type inference is complex.
+  finalSymbolTable.forEach(entry => {
+      if (entry.dataType === 'auto' && entry.attributes?.value !== undefined) {
+          if (typeof entry.attributes.value === 'number') {
+              entry.dataType = Number.isInteger(entry.attributes.value) ? 'int' : 'double';
+          } else if (typeof entry.attributes.value === 'string') {
+              entry.dataType = language === 'java' ? 'String' : 'string';
+          } else if (typeof entry.attributes.value === 'boolean') {
+              entry.dataType = 'boolean';
+          }
+      }
+      // If dataType is still null after lexing, set to 'unknown'
+      if (entry.dataType === null && entry.tokenType === 'IDENTIFIER') {
+          entry.dataType = 'unknown';
+      }
+  });
+
 
   return {
       tokens: tokens.filter(t => t.type !== 'WHITESPACE' && !t.type.startsWith('COMMENT')), // Filter UI tokens
@@ -314,6 +393,7 @@ function calculateStats(tokens: Token[]): LexemeStat[] {
     let totalTokens = 0;
 
     for (const token of tokens) {
+        if (token.type === 'ERROR') continue; // Do not count errors in stats
         counts[token.type] = (counts[token.type] || 0) + 1;
         totalTokens++;
     }
@@ -330,3 +410,5 @@ function calculateStats(tokens: Token[]): LexemeStat[] {
 
     return stats;
 }
+
+    
